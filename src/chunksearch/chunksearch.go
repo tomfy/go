@@ -35,12 +35,12 @@ func main() {
 
 	seqchset := seqchunkset.Construct_from_fasta_file(*file1Ptr, *chunk_size_ptr)
 	//	fmt.Printf("%3d\n", *f1retval)
-	fmt.Println(*seqchset.Sequences)
-	fmt.Println(*seqchset.Index_id)
-	fmt.Println(*seqchset.Id_index)
+	fmt.Println(seqchset.Sequences)
+	fmt.Println(seqchset.Index_id)
+	fmt.Println(seqchset.Id_index)
 
 
-	fmt.Println(*seqchset.Chunk_spec_strings)
+	fmt.Println(seqchset.Chunk_spec_strings)
 
 		
 	/*
