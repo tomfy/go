@@ -1,22 +1,22 @@
 package seqchunkset
 
 import (
-	"bufio"
+//	"bufio"
 	"fmt"
 	"os"
 	"reflect"
-	"regexp"
-	"sort"
-	"strings"
+//	"regexp"
 	"sequenceset"
+	"sort"
+//	"strings"
 )
 
 type sequence_chunk_set struct {
-	Sequences       []string
-	Sequence_length int
-	Index_id        map[int]string
-	Id_index        map[string]int
-	Sequence_set sequenceset.sequence_set
+//	Sequences               []string
+//	Sequence_length         int
+//	Index_id                map[int]string
+//	Id_index                map[string]int
+	Sequence_set            *sequenceset.Sequence_set
 	Chunk_size              int
 	Chunk_spec_strings      []string
 	Chunk_spec_arrays       [][]int
@@ -26,11 +26,11 @@ type sequence_chunk_set struct {
 func Construct_from_fasta_file(filename string, chunk_size int) *sequence_chunk_set {
 
 	var seq_chunk_set sequence_chunk_set
-	chunk__seq_matchindices := make( map[string]map[string][]int )
-	var sequences []string
-	var sequence_set sequenceset
-	if true {
-		fh, err := os.Open(filename)
+	chunk__seq_matchindices := make(map[string]map[string][]int)
+//	var sequences []string
+	var sequence_set *sequenceset.Sequence_set
+//	if false {
+	/*	fh, err := os.Open(filename)
 		if err != nil {
 			os.Exit(1)
 		}
@@ -38,7 +38,7 @@ func Construct_from_fasta_file(filename string, chunk_size int) *sequence_chunk_
 		id_index := make(map[string]int)
 		index_id := make(map[int]string)
 
-		//	var chunk_specifier_strings []string  /* elements like '23_51_3_1_135' */
+		//	var chunk_specifier_strings []string  // elements like '23_51_3_1_135' 
 
 		// read sequences from file into sequences slice
 		// and set up maps from ids to indices and vice versa
@@ -76,15 +76,16 @@ func Construct_from_fasta_file(filename string, chunk_size int) *sequence_chunk_
 		seq_chunk_set.Sequence_length = seq_length
 		seq_chunk_set.Sequences = sequences
 		seq_chunk_set.Index_id = index_id
-		seq_chunk_set.Id_index = id_index
-	} else {
-		sequence_set = sequenceset.Construct_from_fasta_file(filename);
-	}
+		seq_chunk_set.Id_index = id_index */
+//	} else {
+		sequence_set = sequenceset.Construct_from_fasta_file(filename)
+	//	_ = sequence_set
+//	}
 
 	// get the chunk-specifying strings (e.g. "1_5_109_4") and store in a slice
 	var chunk_spec_strings []string
 	var chunk_spec_arrays [][]int
-	for used_so_far := 0; used_so_far+chunk_size <= seq_chunk_set.Sequence_length; used_so_far += chunk_size {
+	for used_so_far := 0; used_so_far+chunk_size <= sequence_set.Sequence_length; used_so_far += chunk_size {
 		chunk_spec_str := fmt.Sprintf("%d", used_so_far)
 		var chunk_spec_array []int
 		chunk_spec_array = append(chunk_spec_array, used_so_far)
@@ -107,13 +108,16 @@ func Construct_from_fasta_file(filename string, chunk_size int) *sequence_chunk_
 			seq_matchindices = make(map[string][]int)
 			chunk__seq_matchindices[css] = seq_matchindices
 		}
-		for iseq, seq := range sequences { // loop over the sequences
+		for iseq, seq := range sequence_set.Sequences { // loop over the sequences
 			//	seq := sequences[iseq]
 			//	seq_as_array := strings.Split(seq, "")
-			fmt.Println("XXX: " + seq)
+		//	fmt.Println("XXX: " + seq)
 			chunk_seq := ""
-			for j := 0; j < chunk_size; j += chunk_size { // assemble the sequence chunk
+			for j := 0; j < chunk_size; j++ { // assemble the sequence chunk
+			//	snp := seq[csa[j] : csa[j]+1]
+
 				chunk_seq += seq[csa[j] : csa[j]+1]
+				fmt.Printf("AAAAA: %d   %s\n", j, chunk_seq)
 			}
 			//	Chunk__seq_matchindices *map[string]*map[string]*[]int
 			//	chunk__seq_matchindices := make(map[string]*map[string]*[]int)
@@ -126,14 +130,15 @@ func Construct_from_fasta_file(filename string, chunk_size int) *sequence_chunk_
 		}
 	}
 
+	seq_chunk_set.Sequence_set = sequence_set
 	seq_chunk_set.Chunk__seq_matchindices = chunk__seq_matchindices
 	return &seq_chunk_set
 }
 
-func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, matchindex_counts []int) []int {
+func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, matchindex_counts []int )  []int {
 	seq_length := len(sequence)
-	if seq_length != scs.Sequence_length {
-		fmt.Printf("sequence lengths: %8d %8d not equal; exiting.\n", seq_length, scs.Sequence_length)
+	if seq_length != scs.Sequence_set.Sequence_length {
+		fmt.Printf("sequence lengths: %8d %8d not equal; exiting.\n", seq_length, scs.Sequence_set.Sequence_length)
 		os.Exit(1)
 	}
 	chunk__seq_matchindices := scs.Chunk__seq_matchindices
@@ -141,7 +146,9 @@ func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, match
 		css := scs.Chunk_spec_strings[ich]
 		chunk_seq := ""
 		for _, idx := range csa { // assemble the sequence chunk (string)
+			fmt.Printf("GGG:  %s %d\n", css, idx)
 			chunk_seq += sequence[idx : idx+1]
+			fmt.Printf("HHH:  %s %d\n", chunk_seq, idx)
 		}
 		seq_matchindices, ok1 := chunk__seq_matchindices[css]
 		if ok1 {
@@ -153,7 +160,9 @@ func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, match
 			}
 		}
 	}
-	n_seqs := len(matchindex_counts)
+//	n_seqs := len(matchindex_counts)
 	sort.Ints(matchindex_counts)                 // small to large
-	return matchindex_counts[n_seqs-10 : n_seqs] // sort return the last few ...
+fmt.Println("QQQ")
+	fmt.Println(matchindex_counts)
+	return matchindex_counts // [n_seqs-2 : n_seqs] // sort return the last few ...
 }

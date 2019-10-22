@@ -10,19 +10,19 @@ import (
 //	"sort"
 )
 
-type sequence_set struct {
+type Sequence_set struct {
 	Sequences               []string
 	Sequence_length         int
 	Index_id                map[int]string
 	Id_index                map[string]int
 }
 
-func Construct_from_fasta_file(filename string) *sequence_set {
+func Construct_from_fasta_file(filename string) *Sequence_set {
 	fh, err := os.Open(filename)
 	if err != nil {
 		os.Exit(1)
 	}
-	var seq_set sequence_set
+	var seq_set Sequence_set
 
 	var sequences []string
 	id_index := make(map[string]int)
@@ -42,7 +42,7 @@ func Construct_from_fasta_file(filename string) *sequence_set {
 			match_strings := r.FindStringSubmatch(line)
 			index_id[index] = match_strings[1]
 			id_index[match_strings[1]] = index
-			fmt.Println(match_strings[1])
+	//		fmt.Println(match_strings[1])
 		} else { // sequence line
 			line = strings.TrimSpace(line)
 			if len(line) < min_seq_len {
@@ -52,7 +52,7 @@ func Construct_from_fasta_file(filename string) *sequence_set {
 				max_seq_len = len(line)
 			}
 			sequences = append(sequences, line)
-			fmt.Printf("   [%s]\n", line)
+	//		fmt.Printf("   [%s]\n", line)
 			index++
 		}
 	}
