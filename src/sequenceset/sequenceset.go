@@ -54,7 +54,7 @@ func Construct_from_fasta_file(filename string) *Sequence_set {
 			index++
 		}
 	}
-	if min_seq_len != max_seq_len {
+	if min_seq_len != max_seq_len { // all sequence lengths must be the same, otherwise exit.
 		fmt.Printf("min, max sequence lengths: %8d %8d lengths not equal; exiting.\n", min_seq_len, max_seq_len)
 		os.Exit(1)
 	}
