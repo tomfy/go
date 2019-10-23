@@ -6,8 +6,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-//	"reflect"
-//	"sort"
 )
 
 type Sequence_set struct {
@@ -67,4 +65,8 @@ func Construct_from_fasta_file(filename string) *Sequence_set {
 	seq_set.Id_index = id_index
 
 	return &seq_set
+}
+
+func (set Sequence_set) Index_to_id(index int) string {
+	return set.Index_id[index]
 }

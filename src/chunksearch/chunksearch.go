@@ -11,14 +11,6 @@ import (
 	"sequenceset"
 )
 
-/*
-	if min_seq_len != max_seq_len {
-		fmt.Printf("min, max sequence lengths: %8d %8d lengths not equal; exiting.\n", min_seq_len, max_seq_len)
-		os.Exit(1)
-	}
-	return 1
-} */
-
 func main() {
 
 	/* command line options: */
@@ -31,37 +23,29 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Printf("file1: %s\n", *file1)
-	fmt.Printf("file2: %s\n", *file2)
+	fmt.Printf("# file1: %s\n", *file1)
+	fmt.Printf("# file2: %s\n", *file2)
 
 	seqchset := seqchunkset.Construct_from_fasta_file(*file1, *chunk_size_ptr)
-	//	fmt.Printf("%3d\n", *f1retval)
-	fmt.Println(seqchset.Sequence_set.Sequences)
-	fmt.Println(seqchset.Sequence_set.Index_id)
-	fmt.Println(seqchset.Sequence_set.Id_index)
-	fmt.Println(seqchset.Chunk_spec_strings)
+	n_seqs1 := len(seqchset.Sequence_set.Sequences)
 
-	for i, css := range seqchset.Chunk_spec_strings {
-fmt.Printf("TTT: %d\n", i)
-		seq_matchindices := seqchset.Chunk__seq_matchindices[css]
-		for chunkseq, _ := range seq_matchindices {
-			fmt.Printf("SSS: %d   %s   %s\n", i, css, chunkseq )
-		}
-	}
 
 	sequence_set2 := sequenceset.Construct_from_fasta_file(*file2)
-	fmt.Println("WWWW")
-	for _, seq2 := range sequence_set2.Sequences {
-		matchindex_counts := make([]int, 1, 1)
-		fmt.Printf("%d %d \n", len(matchindex_counts), cap(matchindex_counts))
-		highest_counts := seqchset.Get_chunk_matchindex_counts(seq2, matchindex_counts)
-		fmt.Println(highest_counts)
+	for index, seq2 := range sequence_set2.Sequences {
+		id2 := sequence_set2.Index_to_id(index)
+		fmt.Printf("%8s  ", id2)
+		matchindex_counts := make([]int, n_seqs1)
+		//	fmt.Printf("%d %d \n", len(matchindex_counts), cap(matchindex_counts))
+		best_match_indices, counts := seqchset.Get_chunk_matchindex_counts(seq2, matchindex_counts)
+		//	fmt.Printf("# ")
+	//	for i, index1 := range best_match_indices {
+		//	id1 := sequence_set1.Index_to_id(index1)
+	//		fmt.Printf("%2d %2d  ", index1, counts[i])
+	//	}
+fmt.Println(best_match_indices)
+fmt.Println(counts)
+//		fmt.Printf("\n")
+		//fmt.Println(highest_counts)
 	}
-	/*
-	   	fh2, err := os.Open(*file2Ptr)
-	   	if err != nil {
-	   	os.Exit(1)
-	   }
-	*/
 
 }
