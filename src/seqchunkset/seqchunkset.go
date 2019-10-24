@@ -69,7 +69,7 @@ func Construct_from_fasta_file(sequence_set *sequenceset.Sequence_set, chunk_siz
 
 func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, mindex_count_pairs []mytypes.Pair_int_int, n_top int) []mytypes.Pair_int_int {
 
-//	fmt.Println(mindex_count_pairs)
+	//	fmt.Println(mindex_count_pairs)
 	seq_length := len(sequence)
 	if seq_length != scs.Sequence_set.Sequence_length {
 		fmt.Printf("sequence lengths: %8d %8d not equal; exiting.\n", seq_length, scs.Sequence_set.Sequence_length)
@@ -92,6 +92,49 @@ func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, minde
 			}
 		}
 	}
-	sort.Slice(mindex_count_pairs, func(i, j int) bool { return mindex_count_pairs[i].B > mindex_count_pairs[j].B })
-	return mindex_count_pairs[0:n_top-1]
+	if true {
+		mindex_count_pairs = quickselect(mindex_count_pairs, n_top)
+		sort.Slice(mindex_count_pairs,  func(i, j int) bool { return mindex_count_pairs[i].B > mindex_count_pairs[j].B })
+		return mindex_count_pairs
+	} else {
+		sort.Slice(mindex_count_pairs, func(i, j int) bool { return mindex_count_pairs[i].B > mindex_count_pairs[j].B })
+		return mindex_count_pairs[0 : n_top-1]
+	}
+}
+
+func quickselect(list []mytypes.Pair_int_int, k int) []mytypes.Pair_int_int {
+	if k > 0 {
+		k--
+		keepers := make([]mytypes.Pair_int_int, 0, k)
+		for {
+			// partition
+			px := len(list) / 2                         // 'middle' index
+			pv := list[px].B                            // 'pivot' value
+			last := len(list) - 1                       // index of last element
+			list[px], list[last] = list[last], list[px] // swap 'middle' and last elements
+			i := 0
+			for j := 0; j < last; j++ { // for each index up to but not including the last ...
+				if list[j].B > pv { // if elem j is less than the pivot value ...
+					list[i], list[j] = list[j], list[i] // swap elem j to ith position (i <= j)
+					i++
+				}
+			} // now all elements < pv (i of them) are on left, >= pv on right
+			// select
+			if k == i {
+				list[i], list[last] = list[last], list[i]
+				keepers = append(keepers, list[:i+1]...)
+				return keepers
+			}
+			if k < i {
+				list = list[:i] // kth smallest will be one of the first i
+			} else { // k > i;  kth smallest will be one of the k-(i+1) elements >= pv
+				list[i], list[last] = list[last], list[i]
+				keepers = append(keepers, list[:i+1]...) // 0 through ith elements are keepers
+				list = list[i+1:]
+				k -= i + 1
+			}
+		}
+	} else {
+		return make([]mytypes.Pair_int_int, 0, 0)
+	}
 }
