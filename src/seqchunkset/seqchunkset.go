@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mytypes"
 	"os"
+	"math/rand"
 	"sequenceset"
 	"sort"
 )
@@ -16,7 +17,7 @@ type sequence_chunk_set struct {
 	Chunk__seq_matchindices map[string]map[string][]int // keys are chunk specifier strings, values are pts to maps, whose keys are chunk seqs (e.g. '10020101') values are
 }
 
-func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_size int) *sequence_chunk_set {
+func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int) *sequence_chunk_set {
 
 	var seq_chunk_set sequence_chunk_set
 	chunk__seq_matchindices := make(map[string]map[string][]int)
@@ -25,16 +26,34 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 	// and also the corresponding chunk-specifying slices (e.g. []int{1,5,109,4} )
 	var chunk_spec_strings []string
 	var chunk_spec_arrays [][]int
-	for used_so_far := 0; used_so_far+chunk_size <= sequence_set.Sequence_length; used_so_far += chunk_size {
-		chunk_spec_str := fmt.Sprintf("%d", used_so_far)
-		var chunk_spec_array []int
-		chunk_spec_array = append(chunk_spec_array, used_so_far)
-		for i := 1; i < chunk_size; i++ {
-			chunk_spec_str += fmt.Sprintf("_%d", used_so_far+i)
-			chunk_spec_array = append(chunk_spec_array, used_so_far+i)
+	seq_length := sequence_set.Sequence_length
+	n_chunks_from_sequence := seq_length / chunk_size // int division here
+	if(n_chunks < 0){
+		n_chunks = n_chunks_from_sequence // just do one pass through the set of sequences
+	}
+	n_full_chunk_sets := n_chunks / n_chunks_from_sequence
+	fmt.Fprintf(os.Stderr, "# full chunk sets: %d\n", n_full_chunk_sets)
+	for k := 0; k < n_full_chunk_sets; k++ {
+		is := make([]int, seq_length, seq_length) // slice of integers
+		for j, _ := range is {
+			is[j] = j
 		}
-		chunk_spec_strings = append(chunk_spec_strings, chunk_spec_str)
-		chunk_spec_arrays = append(chunk_spec_arrays, chunk_spec_array)
+		if k > 0 {
+			rand.Shuffle(len(is), func(i, j int) { is[i], is[j] = is[j], is[i] })
+		}
+		for used_so_far := 0; used_so_far+chunk_size <= sequence_set.Sequence_length; used_so_far += chunk_size {
+			next_gt := is[used_so_far]
+			chunk_spec_str := fmt.Sprintf("%d", next_gt)
+			var chunk_spec_array []int
+			chunk_spec_array = append(chunk_spec_array, next_gt)
+			for i := 1; i < chunk_size; i++ {
+				next_gt = used_so_far+i
+				chunk_spec_str += fmt.Sprintf("_%d", next_gt)
+				chunk_spec_array = append(chunk_spec_array, next_gt)
+			}
+			chunk_spec_strings = append(chunk_spec_strings, chunk_spec_str)
+			chunk_spec_arrays = append(chunk_spec_arrays, chunk_spec_array)
+		}
 	}
 	seq_chunk_set.Chunk_spec_strings = chunk_spec_strings
 	seq_chunk_set.Chunk_spec_arrays = chunk_spec_arrays
@@ -94,7 +113,7 @@ func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, minde
 	}
 	if true {
 		mindex_count_pairs = quickselect(mindex_count_pairs, n_top)
-		sort.Slice(mindex_count_pairs,  func(i, j int) bool { return mindex_count_pairs[i].B > mindex_count_pairs[j].B })
+		sort.Slice(mindex_count_pairs, func(i, j int) bool { return mindex_count_pairs[i].B > mindex_count_pairs[j].B })
 		return mindex_count_pairs
 	} else {
 		sort.Slice(mindex_count_pairs, func(i, j int) bool { return mindex_count_pairs[i].B > mindex_count_pairs[j].B })
