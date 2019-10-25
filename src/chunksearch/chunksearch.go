@@ -27,7 +27,7 @@ func main() {
 	file2 := flag.String("f2", "", "name of 2nd fasta file.")
 	chunk_size_ptr := flag.Int("size", 6, "number of snps in each chunk")
 //	n_chunks := flag.Int("chunks", -1, "number of chunks to use")
-	n_top := flag.Int("top", 16, "# of best matches to keep")
+	n_keep := flag.Int("keep", 16, "# of best matches to keep")
 
 	flag.Parse()
 
@@ -42,16 +42,22 @@ func main() {
 
 	fmt.Printf("# file1: %s\n", *file1)
 	fmt.Printf("# file2: %s\n", *file2)
+	fmt.Printf("# chunk size: %d\n", *chunk_size_ptr)
+	fmt.Printf("# keep: %d\n", *n_keep)
 
 	t0 := time.Now()
 	sequence_set1 := sequenceset.Construct_from_fasta_file(*file1)
-	seqchset := seqchunkset.Construct_from_fasta_file(sequence_set1, *chunk_size_ptr)
+	fmt.Fprintf(os.Stderr, "Done constructing sequence set 1.\n")
+	seqchset := seqchunkset.Construct_from_sequence_set(sequence_set1, *chunk_size_ptr)
+	fmt.Fprintf(os.Stderr, "Done constructing sequence chunk set.\n")
 	n_seqs1 := len(seqchset.Sequence_set.Sequences)
 	t1 := time.Now()
 
 	
 
 	sequence_set2 := sequenceset.Construct_from_fasta_file(*file2)
+	fmt.Fprintf(os.Stderr, "Done constructing sequence set 2.\n")
+
 	for index, seq2 := range sequence_set2.Sequences {
 	//	s2 := sequence_set2.Seqs[index]
 		id2 := sequence_set2.Index_to_id(index)	
@@ -60,7 +66,10 @@ func main() {
 			mindex_count_pairs[i].A = i
 		}
 
-		top_mindex_count_pairs := seqchset.Get_chunk_matchindex_counts(seq2, mindex_count_pairs, *n_top)
+		top_mindex_count_pairs := seqchset.Get_chunk_matchindex_counts(seq2, mindex_count_pairs, *n_keep)
+		if(index % 100 == 0){
+			fmt.Fprintf(os.Stderr, "Search %d done.\n", index)
+		}
 		fmt.Printf("%s   ", id2)
 		for _, mcp := range top_mindex_count_pairs{
 			seq1_index := mcp.A
