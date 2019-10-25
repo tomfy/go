@@ -16,7 +16,7 @@ type sequence_chunk_set struct {
 	Chunk__seq_matchindices map[string]map[string][]int // keys are chunk specifier strings, values are pts to maps, whose keys are chunk seqs (e.g. '10020101') values are
 }
 
-func Construct_from_fasta_file(sequence_set *sequenceset.Sequence_set, chunk_size int) *sequence_chunk_set {
+func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_size int) *sequence_chunk_set {
 
 	var seq_chunk_set sequence_chunk_set
 	chunk__seq_matchindices := make(map[string]map[string][]int)
