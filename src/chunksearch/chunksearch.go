@@ -43,39 +43,49 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	fmt.Printf("# file1: %s\n", *file1)
-	fmt.Printf("# file2: %s\n", *file2)
-	fmt.Printf("# chunk size: %d\n", *chunk_size)
-	fmt.Printf("# keep: %d\n", *n_keep)
+	fmt.Printf("# file1: %s   file2: %s\n", *file1, *file2)
+	fmt.Printf("# chunk_size: %d   n_chunks: %d   n_keep: %d\n", *chunk_size, *n_chunks, *n_keep)
 
 	t0 := time.Now()
 	sequence_set1 := sequenceset.Construct_from_fasta_file(*file1)
 	fmt.Fprintf(os.Stderr, "Done constructing sequence set 1.\n")
-fmt.Fprintf(os.Stderr, "chunk size: %d  n_chunks: %d \n", *chunk_size, *n_chunks)
+	fmt.Fprintf(os.Stderr, "chunk size: %d  n_chunks: %d  n_keep: %d\n", *chunk_size, *n_chunks, *n_keep)
 	seqchset := seqchunkset.Construct_from_sequence_set(sequence_set1, *chunk_size, *n_chunks)
 	fmt.Fprintf(os.Stderr, "Done constructing sequence chunk set.\n")
 	n_seqs1 := len(seqchset.Sequence_set.Sequences)
 	t1 := time.Now()
 	fmt.Fprintf(os.Stderr, "# time to construct: %v \n", t1.Sub(t0))
-	fmt.Printf("# time to construct: %v \n", t1.Sub(t0))
 
 	sequence_set2 := sequenceset.Construct_from_fasta_file(*file2)
-	fmt.Fprintf(os.Stderr, "Done constructing sequence set 2.\n")
+	fmt.Fprintf(os.Stderr, "# Done constructing sequence set 2.\n")
 
 	// for each sequence in set 2, search for relatives in set 1
 
-	for index, seq2 := range sequence_set2.Sequences {
+	id2__index1_matchcount := make(map[string][]mytypes.Pair_int_int) // keys strings (id2), values: slices
+	for index2, seq2 := range sequence_set2.Sequences {
 		//	s2 := sequence_set2.Seqs[index]
-		id2 := sequence_set2.Index_to_id(index)
+		id2 := sequence_set2.Index_to_id(index2)
 		mindex_count_pairs := make([]mytypes.Pair_int_int, n_seqs1)
 		for i := 0; i < n_seqs1; i++ {
 			mindex_count_pairs[i].A = i
 		}
 
 		top_mindex_count_pairs := seqchset.Get_chunk_matchindex_counts(seq2, mindex_count_pairs, *n_keep)
-		if index%500 == 0 {
-			fmt.Fprintf(os.Stderr, "Search %d done.\n", index)
+		if index2%500 == 0 {
+			fmt.Fprintf(os.Stderr, "Search %d done.\n", index2)
 		}
+		id2__index1_matchcount[id2] = top_mindex_count_pairs
+	}
+	t2 := time.Now()
+	fmt.Fprintf(os.Stderr, "# All searches done.\n")
+	fmt.Fprintf(os.Stderr, "# time to search: %v \n", t2.Sub(t1))
+	
+	for index2, seq2 := range sequence_set2.Sequences {
+		//	for id2, top_mindex_count_pairs := range id2__index1_matchcount {
+		id2 := sequence_set2.Index_to_id(index2)
+		top_mindex_count_pairs := id2__index1_matchcount[id2]
+
+		
 		id_matchcount_distance_triples := make([]mytypes.Triple_string_int_double, *n_keep, *n_keep)
 		fmt.Printf("%s   ", id2)
 		for i, mcp := range top_mindex_count_pairs {
@@ -95,57 +105,12 @@ fmt.Fprintf(os.Stderr, "chunk size: %d  n_chunks: %d \n", *chunk_size, *n_chunks
 		}
 		fmt.Printf("\n")
 	}
-	t2 := time.Now()
+	t3 := time.Now()
+	fmt.Fprintf(os.Stderr, "# time to calculate distances: %v \n", t3.Sub(t2))
 
-	fmt.Fprintf(os.Stderr, "All searches done.\n")
+	fmt.Printf("# time to construct: %v \n", t1.Sub(t0))
 	fmt.Printf("# time to search: %v \n", t2.Sub(t1))
-}
-
-func distance_x(seq1 []uint, seq2 []uint) float64 {
-	ok_count := 0   // counts sites where neither seq has missing data
-	dist_count := 0 // sums differences, i.e. 0-1 -> +=1, 0-2 -> += 2, ...
-	for i := 0; i < len(seq1); i++ {
-		c1 := seq1[i]
-		c2 := seq2[i]
-		if c1 == 0 {
-			if c2 == 0 {
-				ok_count++
-			} else if c2 == 1 {
-				ok_count++
-				dist_count++
-			} else if c2 == 2 {
-				ok_count++
-				dist_count += 2
-			}
-		} else if c1 == 1 {
-			if c2 == 0 {
-				ok_count++
-				dist_count++
-			} else if c2 == 1 {
-				ok_count++
-			} else if c2 == 2 {
-				ok_count++
-				dist_count++
-			}
-		} else if c1 == 2 {
-			if c2 == 0 {
-				ok_count++
-				dist_count += 2
-			} else if c2 == 1 {
-				ok_count++
-				dist_count++
-			} else if c2 == 2 {
-				ok_count++
-			}
-		}
-	}
-	var distance float64
-	if ok_count > 0 {
-		distance = float64(dist_count) / float64(ok_count)
-	} else {
-		distance = -1.0 // couldn't calculate because no sites without missing data
-	}
-	return distance
+	fmt.Printf("# time to calculate distances: %v \n", t3.Sub(t2))
 }
 
 func distance(seq1 string, seq2 string) float64 {
@@ -182,6 +147,54 @@ func distance(seq1 string, seq2 string) float64 {
 				ok_count++
 				dist_count++
 			} else if c2 == "2" {
+				ok_count++
+			}
+		}
+	}
+	var distance float64
+	if ok_count > 0 {
+		distance = float64(dist_count) / float64(ok_count)
+	} else {
+		distance = -1.0 // couldn't calculate because no sites without missing data
+	}
+	return distance
+}
+
+// version using sequences stored as slices, rather than as strings.
+func distance_x(seq1 []uint, seq2 []uint) float64 {
+	ok_count := 0   // counts sites where neither seq has missing data
+	dist_count := 0 // sums differences, i.e. 0-1 -> +=1, 0-2 -> += 2, ...
+	for i := 0; i < len(seq1); i++ {
+		c1 := seq1[i]
+		c2 := seq2[i]
+		if c1 == 0 {
+			if c2 == 0 {
+				ok_count++
+			} else if c2 == 1 {
+				ok_count++
+				dist_count++
+			} else if c2 == 2 {
+				ok_count++
+				dist_count += 2
+			}
+		} else if c1 == 1 {
+			if c2 == 0 {
+				ok_count++
+				dist_count++
+			} else if c2 == 1 {
+				ok_count++
+			} else if c2 == 2 {
+				ok_count++
+				dist_count++
+			}
+		} else if c1 == 2 {
+			if c2 == 0 {
+				ok_count++
+				dist_count += 2
+			} else if c2 == 1 {
+				ok_count++
+				dist_count++
+			} else if c2 == 2 {
 				ok_count++
 			}
 		}
