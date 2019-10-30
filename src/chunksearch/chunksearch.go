@@ -111,6 +111,7 @@ func main() {
 	fmt.Printf("# time to construct: %v \n", t1.Sub(t0))
 	fmt.Printf("# time to search: %v \n", t2.Sub(t1))
 	fmt.Printf("# time to calculate distances: %v \n", t3.Sub(t2))
+	fmt.Printf("# total time: %v \n", t3.Sub(t0))
 }
 
 func distance(seq1 string, seq2 string) float64 {
@@ -161,7 +162,7 @@ func distance(seq1 string, seq2 string) float64 {
 }
 
 // version using sequences stored as slices, rather than as strings.
-func distance_x(seq1 []uint, seq2 []uint) float64 {
+/* func distance_x(seq1 []uint, seq2 []uint) float64 {
 	ok_count := 0   // counts sites where neither seq has missing data
 	dist_count := 0 // sums differences, i.e. 0-1 -> +=1, 0-2 -> += 2, ...
 	for i := 0; i < len(seq1); i++ {
@@ -207,3 +208,4 @@ func distance_x(seq1 []uint, seq2 []uint) float64 {
 	}
 	return distance
 }
+ */
