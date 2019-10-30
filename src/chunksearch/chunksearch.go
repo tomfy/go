@@ -8,6 +8,7 @@ import (
 	"os"
 	//	"regexp"
 	//	"strings"
+	"math/rand"
 	"mytypes"
 	"runtime/pprof"
 	"seqchunkset"
@@ -28,9 +29,18 @@ func main() {
 	file2 := flag.String("f2", "", "name of 2nd fasta file.")
 
 	/* search control parameters */
-	chunk_size := flag.Int("size", 6, "number of snps in each chunk")
+	chunk_size := flag.Int("size", 5, "number of snps in each chunk")
 	n_chunks := flag.Int("chunks", -1, "number of chunks to use")
 	n_keep := flag.Int("keep", 20, "# of best matches to keep")
+	seed_ptr := flag.Int("seed", -1, "# rng seed (default: set from clock.)")
+	n_reps := flag.Int("reps", 1, "# number of times to repeat the whole search (with different random chunk sets)")
+
+	seed := int64(*seed_ptr)
+	tstart := time.Now()
+	if(seed < 0){		
+		seed = int64(tstart.Nanosecond())
+	}
+	rand.Seed(seed)
 
 	flag.Parse()
 
@@ -44,8 +54,9 @@ func main() {
 	}
 
 	fmt.Printf("# file1: %s   file2: %s\n", *file1, *file2)
-	fmt.Printf("# chunk_size: %d   n_chunks: %d   n_keep: %d\n", *chunk_size, *n_chunks, *n_keep)
+	fmt.Printf("# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", *chunk_size, *n_chunks, *n_keep, seed)
 
+	for irep := 0; irep < *n_reps; irep++ {
 	t0 := time.Now()
 	sequence_set1 := sequenceset.Construct_from_fasta_file(*file1)
 	fmt.Fprintf(os.Stderr, "Done constructing sequence set 1.\n")
@@ -71,7 +82,7 @@ func main() {
 		}
 
 		top_mindex_count_pairs := seqchset.Get_chunk_matchindex_counts(seq2, mindex_count_pairs, *n_keep)
-		if index2%500 == 0 {
+		if index2%1000 == 0 {
 			fmt.Fprintf(os.Stderr, "Search %d done.\n", index2)
 		}
 		id2__index1_matchcount[id2] = top_mindex_count_pairs
@@ -111,7 +122,10 @@ func main() {
 	fmt.Printf("# time to construct: %v \n", t1.Sub(t0))
 	fmt.Printf("# time to search: %v \n", t2.Sub(t1))
 	fmt.Printf("# time to calculate distances: %v \n", t3.Sub(t2))
-	fmt.Printf("# total time: %v \n", t3.Sub(t0))
+		fmt.Printf("# total time: %v \n", t3.Sub(t0))
+	}
+	tend := time.Now()
+	fmt.Printf("# total time for %d reps: %v\n", *n_reps, tend.Sub(tstart))
 }
 
 func distance(seq1 string, seq2 string) float64 {
