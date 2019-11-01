@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-//	"sequence"
+	//	"sequence"
+	"math/rand"
 	"strings"
 )
 
 type Sequence_set struct {
 	Sequences       []string
 	Sequence_length int
-//	Seqs            []sequence.Sequence
-	Index_id        map[int]string
-	Id_index        map[string]int
+	//	Seqs            []sequence.Sequence
+	Index_id map[int]string
+	Id_index map[string]int
 }
 
 func Construct_from_fasta_file(filename string) *Sequence_set {
@@ -25,8 +26,8 @@ func Construct_from_fasta_file(filename string) *Sequence_set {
 	var seq_set Sequence_set
 
 	var sequences []string
-//	var seqs []sequence.Sequence
-	var id string 
+	//	var seqs []sequence.Sequence
+	var id string
 	id_index := make(map[string]int)
 	index_id := make(map[int]string)
 
@@ -54,9 +55,9 @@ func Construct_from_fasta_file(filename string) *Sequence_set {
 			if len(line) > max_seq_len {
 				max_seq_len = len(line)
 			}
-		//	s := sequence.Construct(line, id)
+			//	s := sequence.Construct(line, id)
 			sequences = append(sequences, line)
-		//	seqs = append(seqs, *s)
+			//	seqs = append(seqs, *s)
 			//		fmt.Printf("   [%s]\n", line)
 			index++
 		}
@@ -70,9 +71,28 @@ func Construct_from_fasta_file(filename string) *Sequence_set {
 	seq_set.Sequences = sequences
 	seq_set.Index_id = index_id
 	seq_set.Id_index = id_index
-//	seq_set.Seqs = seqs
+	//	seq_set.Seqs = seqs
 
 	return &seq_set
+}
+
+func (set Sequence_set) Add_missing_data(prob float64) {
+	if prob > 0.0 {
+		sequences := set.Sequences
+		for i, _ := range sequences {
+			chars := []byte(sequences[i])
+			for j := 0; j < len(chars); j++ {
+				if rand.Float64() < prob {
+					// seq[i : i+1] = "X"
+					chars[j] = 'X'
+				}
+			}
+			sequences[i] = string(chars)
+			//	fmt.Println(sequences[i])
+		}
+		set.Sequences = sequences
+	}
+	return
 }
 
 func (set Sequence_set) Index_to_id(index int) string {
