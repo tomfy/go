@@ -36,14 +36,14 @@ func main() {
 	n_reps := flag.Int("reps", 1, "# number of times to repeat the whole search (with different random chunk sets)")
 	missing_data_prob := flag.Float64("miss", -1, "# fraction missing data in genotypes")
 
+	flag.Parse()
+
 	seed := int64(*seed_ptr)
 	tstart := time.Now()
 	if seed < 0 {
 		seed = int64(tstart.Nanosecond())
 	}
 	rand.Seed(seed)
-
-	flag.Parse()
 
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -54,34 +54,41 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	fmt.Printf("# file1: %s   file2: %s\n", *file1, *file2)
-	fmt.Printf("# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", *chunk_size, *n_chunks, *n_keep, seed)
-
 	for irep := 0; irep < *n_reps; irep++ {
 		t0 := time.Now()
 		sequence_set1 := sequenceset.Construct_from_fasta_file(*file1)
 		sequence_set1.Add_missing_data(*missing_data_prob)
-		fmt.Fprintf(os.Stderr, "Done constructing sequence set 1.\n")
-		fmt.Fprintf(os.Stderr, "chunk size: %d  n_chunks: %d  n_keep: %d\n", *chunk_size, *n_chunks, *n_keep)
-		seqchset := seqchunkset.Construct_from_sequence_set(sequence_set1, *chunk_size, *n_chunks)
-		fmt.Fprintf(os.Stderr, "Done constructing sequence chunk set.\n")
-		n_seqs1 := len(seqchset.Sequence_set.Sequences)
 		t1 := time.Now()
-		fmt.Fprintf(os.Stderr, "# time to construct: %v \n", t1.Sub(t0))
+		fmt.Fprintf(os.Stderr, "# time to construct sequence set 1: %v \n", t1.Sub(t0))
+
+		if *n_chunks < 0 {
+			*n_chunks = int(sequence_set1.Sequence_length / *chunk_size)
+		}
+		fmt.Fprintf(os.Stderr, "# file1: %s   file2: %s\n", *file1, *file2)
+		fmt.Fprintf(os.Stderr, "# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", *chunk_size, *n_chunks, *n_keep, seed)
+		fmt.Printf("# file1: %s   file2: %s\n", *file1, *file2)
+		fmt.Printf("# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", *chunk_size, *n_chunks, *n_keep, seed)
+
+		seqchset := seqchunkset.Construct_from_sequence_set(sequence_set1, *chunk_size, *n_chunks)
+		n_seqs1 := len(seqchset.Sequence_set.Sequences)
+		t2 := time.Now()
+		fmt.Fprintf(os.Stderr, "# time to construct sequence chunk set: %v \n", t2.Sub(t1))
 
 		sequence_set2 := sequenceset.Construct_from_fasta_file(*file2)
 		sequence_set2.Add_missing_data(*missing_data_prob)
-		fmt.Fprintf(os.Stderr, "# Done constructing sequence set 2.\n")
+		t3 := time.Now()
+		fmt.Fprintf(os.Stderr, "# time to construct sequence set 2: %v \n", t3.Sub(t2))
 
 		// for each sequence in set 2, search for relatives in set 1
 
-		id2__index1_matchcount := make(map[string][]mytypes.Pair_int_int) // keys strings (id2), values: slices
+		id2__index1_matchcount := make(map[string][]mytypes.IntIntIntF64) // keys strings (id2), values: slices
 		for index2, seq2 := range sequence_set2.Sequences {
 			//	s2 := sequence_set2.Seqs[index]
 			id2 := sequence_set2.Index_to_id(index2)
-			mindex_count_pairs := make([]mytypes.Pair_int_int, n_seqs1)
+			mindex_count_pairs := make([]mytypes.IntIntIntF64, n_seqs1)
 			for i := 0; i < n_seqs1; i++ {
 				mindex_count_pairs[i].A = i
+				mindex_count_pairs[i].C = *n_chunks - seqchset.Missing_data_chunk_counts[i] // number of OK chunks in seq i (OK == no missing data)
 			}
 
 			top_mindex_count_pairs := seqchset.Get_chunk_matchindex_counts(seq2, mindex_count_pairs, *n_keep)
@@ -90,9 +97,9 @@ func main() {
 			}
 			id2__index1_matchcount[id2] = top_mindex_count_pairs
 		}
-		t2 := time.Now()
+		t4 := time.Now()
 		fmt.Fprintf(os.Stderr, "# All searches done.\n")
-		fmt.Fprintf(os.Stderr, "# time to search: %v \n", t2.Sub(t1))
+		fmt.Fprintf(os.Stderr, "# time to search: %v \n", t4.Sub(t3))
 
 		for index2, seq2 := range sequence_set2.Sequences {
 			//	for id2, top_mindex_count_pairs := range id2__index1_matchcount {
@@ -118,13 +125,15 @@ func main() {
 			}
 			fmt.Printf("\n")
 		}
-		t3 := time.Now()
-		fmt.Fprintf(os.Stderr, "# time to calculate distances: %v \n", t3.Sub(t2))
+		t5 := time.Now()
+		fmt.Fprintf(os.Stderr, "# time to calculate distances: %v \n", t5.Sub(t4))
 
-		fmt.Printf("# time to construct: %v \n", t1.Sub(t0))
-		fmt.Printf("# time to search: %v \n", t2.Sub(t1))
-		fmt.Printf("# time to calculate distances: %v \n", t3.Sub(t2))
-		fmt.Printf("# total time: %v \n", t3.Sub(t0))
+		fmt.Printf("# time to construct sequence set 1: %v \n", t1.Sub(t0))
+		fmt.Printf("# time to construct sequence chunk set: %v \n", t2.Sub(t1))
+		fmt.Printf("# time to construct sequence set 2: %v \n", t3.Sub(t2))
+		fmt.Printf("# time to search: %v \n", t4.Sub(t3))
+		fmt.Printf("# time to calculate distances: %v \n", t5.Sub(t4))
+		fmt.Printf("# total time: %v \n", t5.Sub(t0))
 	}
 	tend := time.Now()
 	fmt.Printf("# total time for %d reps: %v\n", *n_reps, tend.Sub(tstart))

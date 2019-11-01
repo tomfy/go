@@ -8,6 +8,7 @@ import (
 	//	"sequence"
 	"math/rand"
 	"strings"
+	"mytypes"
 )
 
 type Sequence_set struct {
@@ -84,7 +85,7 @@ func (set Sequence_set) Add_missing_data(prob float64) {
 			for j := 0; j < len(chars); j++ {
 				if rand.Float64() < prob {
 					// seq[i : i+1] = "X"
-					chars[j] = 'X'
+					chars[j] = mytypes.MDchar
 				}
 			}
 			sequences[i] = string(chars)
