@@ -155,15 +155,15 @@ func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, minde
 			}
 		}
 	}
-	for _, x := range mindex_count_pairs {
+	for i, x := range mindex_count_pairs {
 		index := x.A
-		x.C = x.C - seq2_chunk_md_count + chunk_mdmd_counts[index] // this is now the number of chunks with OK data in both seqs
-		x.D = float64(x.B) / float64(x.C)
-	//	fmt.Printf("# %d %d %d %g   %d %d \n", x.A, x.B, x.C, x.D, seq2_chunk_md_count, chunk_mdmd_counts[index])
+		mindex_count_pairs[i].C -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // this is now the number of chunks with OK data in both seqs
+		mindex_count_pairs[i].D = float64(x.B) / float64(mindex_count_pairs[i].C)
+	//	fmt.Printf("# %d %d %d %g   %d %d \n", x.A, x.B, mindex_count_pairs[i].C, mindex_count_pairs[i].D, seq2_chunk_md_count, chunk_mdmd_counts[index])
 	}
 	//	if true {
 	mindex_count_pairs = quickselect(mindex_count_pairs, n_top)
-	sort.Slice(mindex_count_pairs, func(i, j int) bool { return mindex_count_pairs[i].B > mindex_count_pairs[j].B })
+	sort.Slice(mindex_count_pairs, func(i, j int) bool { return mindex_count_pairs[i].D > mindex_count_pairs[j].D })
 	return mindex_count_pairs
 	/*	} else {
 		sort.Slice(mindex_count_pairs, func(i, j int) bool { return mindex_count_pairs[i].B > mindex_count_pairs[j].B })
