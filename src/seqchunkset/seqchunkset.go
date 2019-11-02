@@ -48,9 +48,9 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 					chunk_seq = "Missing_data"
 					missing_data_chunk_counts[iseq]++
 					break
-				}
+				}else{
 				chunk_seq += char
-
+}
 			}
 			//	chunk_seq = string(chunk_chars)
 		//	fmt.Println(chunk_seq)
@@ -89,7 +89,7 @@ func Get_chunk_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chu
 		for j, _ := range is {
 			is[j] = j
 		}
-		if k >= 0 {
+		if k > 0 {
 			rand.Shuffle(len(is), func(i, j int) { is[i], is[j] = is[j], is[i] })
 		}
 		for used_so_far := 0; used_so_far+chunk_size <= sequence_set.Sequence_length; used_so_far += chunk_size {
