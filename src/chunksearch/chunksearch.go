@@ -70,7 +70,7 @@ func main() {
 		fmt.Printf("# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", *chunk_size, *n_chunks, *n_keep, seed)
 
 		seqchset := seqchunkset.Construct_from_sequence_set(sequence_set1, *chunk_size, *n_chunks)
-		n_seqs1 := len(seqchset.Sequence_set.Sequences)
+	//	n_seqs1 := len(seqchset.Sequence_set.Sequences)
 		t2 := time.Now()
 		fmt.Fprintf(os.Stderr, "# time to construct sequence chunk set: %v \n", t2.Sub(t1))
 
@@ -85,17 +85,17 @@ func main() {
 		for index2, seq2 := range sequence_set2.Sequences {
 			//	s2 := sequence_set2.Seqs[index]
 			id2 := sequence_set2.Index_to_id(index2)
-			mindex_count_pairs := make([]mytypes.IntIntIntF64, n_seqs1)
+		/*	chunkwise_match_info := make([]mytypes.IntIntIntF64, n_seqs1)
 			for i := 0; i < n_seqs1; i++ {
-				mindex_count_pairs[i].A = i
-				mindex_count_pairs[i].C = *n_chunks - seqchset.Missing_data_chunk_counts[i] // number of OK chunks in seq i (OK == no missing data)
-			}
+				chunkwise_match_info[i].A = i
+				chunkwise_match_info[i].C = *n_chunks - seqchset.Missing_data_chunk_counts[i] // number of OK chunks in seq i (OK == no missing data)
+			} */
 
-			top_mindex_count_pairs := seqchset.Get_chunk_matchindex_counts(seq2, mindex_count_pairs, *n_keep)
+			top_chunkwise_matches := seqchset.Get_chunk_matchindex_counts(seq2, *n_keep)
 			if index2%1000 == 0 {
 				fmt.Fprintf(os.Stderr, "Search %d done.\n", index2)
 			}
-			id2__index1_matchcount[id2] = top_mindex_count_pairs
+			id2__index1_matchcount[id2] = top_chunkwise_matches
 		}
 		t4 := time.Now()
 		fmt.Fprintf(os.Stderr, "# All searches done.\n")

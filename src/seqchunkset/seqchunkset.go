@@ -89,7 +89,7 @@ func Get_chunk_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chu
 		for j, _ := range is {
 			is[j] = j
 		}
-		if k > 0 {
+		if k >= 0 {
 			rand.Shuffle(len(is), func(i, j int) { is[i], is[j] = is[j], is[i] })
 		}
 		for used_so_far := 0; used_so_far+chunk_size <= sequence_set.Sequence_length; used_so_far += chunk_size {
@@ -113,11 +113,19 @@ func Get_chunk_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chu
 	return chunk_spec_strings, chunk_spec_arrays
 }
 
-func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, mindex_count_pairs []mytypes.IntIntIntF64, n_top int) []mytypes.IntIntIntF64 {
+func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, /* chunkwise_match_info []mytypes.IntIntIntF64,*/ n_top int) []mytypes.IntIntIntF64 {
 
-	//	fmt.Println(mindex_count_pairs)
-	n_seqs := len(scs.Sequence_set.Sequences)
+	//	fmt.Println(chunkwise_match_info)
 	seq_length := len(sequence)
+
+	n_seqs := len(scs.Sequence_set.Sequences)
+	n_chunks := len(scs.Chunk_spec_strings)
+
+	chunkwise_match_info := make([]mytypes.IntIntIntF64, n_seqs)
+			for i := 0; i < n_seqs; i++ {
+				chunkwise_match_info[i].A = i
+				chunkwise_match_info[i].C = n_chunks - scs.Missing_data_chunk_counts[i] // number of OK chunks in seq i (OK == no missing data)
+			}
 	if seq_length != scs.Sequence_set.Sequence_length {
 		fmt.Printf("sequence lengths: %8d %8d not equal; exiting.\n", seq_length, scs.Sequence_set.Sequence_length)
 		os.Exit(1)
@@ -142,33 +150,28 @@ func (scs sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, minde
 			matchindices, ok2 := seq_matchindices[chunk_seq]
 			if ok2 {
 				if chunk_seq == "Missing_data" {
-			//	if false {
 					seq2_chunk_md_count++ // count the chunks with missing data in sequence
 					for _, mindex := range matchindices {
 						chunk_mdmd_counts[mindex]++
 					}
 				} else {
 					for _, mindex := range matchindices {
-						mindex_count_pairs[mindex].B++
+						chunkwise_match_info[mindex].B++
 					}
 				}
 			}
 		}
 	}
-	for i, x := range mindex_count_pairs {
+	for i, x := range chunkwise_match_info {
 		index := x.A
-		mindex_count_pairs[i].C -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // this is now the number of chunks with OK data in both seqs
-		mindex_count_pairs[i].D = float64(x.B) / float64(mindex_count_pairs[i].C)
-	//	fmt.Printf("# %d %d %d %g   %d %d \n", x.A, x.B, mindex_count_pairs[i].C, mindex_count_pairs[i].D, seq2_chunk_md_count, chunk_mdmd_counts[index])
+		chunkwise_match_info[i].C -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // this is now the number of chunks with OK data in both seqs
+		chunkwise_match_info[i].D = float64(x.B) / float64(chunkwise_match_info[i].C)
+	//	fmt.Printf("# %d %d %d %g   %d %d \n", x.A, x.B, chunkwise_match_info[i].C, chunkwise_match_info[i].D, seq2_chunk_md_count, chunk_mdmd_counts[index])
 	}
 	//	if true {
-	mindex_count_pairs = quickselect(mindex_count_pairs, n_top)
-	sort.Slice(mindex_count_pairs, func(i, j int) bool { return mindex_count_pairs[i].D > mindex_count_pairs[j].D })
-	return mindex_count_pairs
-	/*	} else {
-		sort.Slice(mindex_count_pairs, func(i, j int) bool { return mindex_count_pairs[i].B > mindex_count_pairs[j].B })
-		return mindex_count_pairs[0 : n_top-1]
-	} */
+	chunkwise_match_info = quickselect(chunkwise_match_info, n_top)
+	sort.Slice(chunkwise_match_info, func(i, j int) bool { return chunkwise_match_info[i].D > chunkwise_match_info[j].D })
+	return chunkwise_match_info
 }
 
 func quickselect(list []mytypes.IntIntIntF64, k int) []mytypes.IntIntIntF64 {
