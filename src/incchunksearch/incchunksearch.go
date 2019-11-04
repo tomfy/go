@@ -1,13 +1,10 @@
 package main
 
 import (
-	//	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	//	"regexp"
-	//	"strings"
 	"math/rand"
 	"mytypes"
 	"runtime/pprof"
@@ -76,39 +73,39 @@ func main() {
 		fmt.Printf("# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", chunk_size, n_chunks, n_keep, seed)
 
 		// for each sequence in set:
-		// search for related sequences among those that have been stored previously;
+		// search for candidate related sequences among those that have been stored previously;
 		// then store latest sequence.
 		t2 := time.Now()
 		seqchset := seqchunkset.Construct_empty(sequence_set.Sequence_length, chunk_size, n_chunks) // 
-		id2__index1_matchcount := make(map[string][]*mytypes.IntIntIntF64) // keys strings (id2), values: slices
-		for index2, seq2 := range sequence_set.Sequences {
-			id2 := sequence_set.Index_to_id(index2)
-			if index2 > 0 { // search against the previously read in sequences
-				top_chunkwise_matches := seqchset.Get_chunk_matchindex_counts(seq2, n_keep)
-				if index2%1000 == 0 {
-					fmt.Fprintf(os.Stderr, "Search %d done.\n", index2)
+		qid_smatchinfos := make(map[string][]*mytypes.IntIntIntF64) // keys strings (id2), values: slices
+		for qindex, qseq := range sequence_set.Sequences {
+			qid  := sequence_set.Index_to_id(qindex)
+			if qindex > 0 { // search against the previously read in sequences
+				top_smatchinfos := seqchset.Get_chunk_matchindex_counts(qseq, n_keep)
+				if qindex % 1000 == 0 {
+					fmt.Fprintf(os.Stderr, "Search %d done.\n", qindex)
 				}
-				id2__index1_matchcount[id2] = top_chunkwise_matches
+				qid_smatchinfos[qid] = top_smatchinfos
 			}			
-			seqchset.Add_sequence(id2, seq2) // add latest sequence 
+			seqchset.Add_sequence(qid, qseq) // add latest sequence 
 		}
 		t3 := time.Now()
 		fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
 		fmt.Fprintf(os.Stderr, "# time to search: %v \n", t3.Sub(t2))
 
-		for index2, seq2 := range sequence_set.Sequences {
-			id2 := sequence_set.Index_to_id(index2)
-			top_mindex_count_pairs := id2__index1_matchcount[id2]
+		// do the full distance calculation for each candidate found above based on chunkwise analysis
+		for qindex, qseq := range sequence_set.Sequences {
+			qid := sequence_set.Index_to_id(qindex)
+			top_smatchinfos := qid_smatchinfos[qid]
 			
-			id_matchcount_distance_triples := make([]mytypes.Triple_string_int_double, len(top_mindex_count_pairs) )
-			fmt.Printf("%s   ", id2)
-			for i, mcp := range top_mindex_count_pairs {
-				seq1_index := mcp.A
-				seq1_id := sequence_set.Index_to_id(seq1_index)
-				seq1 := sequence_set.Sequences[seq1_index]
-				dist12 := distance(seq1, seq2)
-				//	fmt.Printf("# dists: %10.6f  %10.6f \n", dist12, disty12)
-				id_matchcount_distance_triples[i] = mytypes.Triple_string_int_double{seq1_id, mcp.B, dist12}
+			id_matchcount_distance_triples := make([]mytypes.Triple_string_int_double, len(top_smatchinfos) )
+			fmt.Printf("%s   ", qid)
+			for i, smatchinfo := range top_smatchinfos {
+				sseq_index := smatchinfo.A
+				sseq_id := sequence_set.Index_to_id(sseq_index)
+				sseq := sequence_set.Sequences[sseq_index]
+				dist := distance(sseq, qseq)
+				id_matchcount_distance_triples[i] = mytypes.Triple_string_int_double{sseq_id, smatchinfo.B, dist}
 			}
 			sort.Slice(id_matchcount_distance_triples,
 				func(i, j int) bool { return id_matchcount_distance_triples[i].C < id_matchcount_distance_triples[j].C })

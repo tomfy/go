@@ -28,7 +28,7 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 	seq_chunk_set.Chunk_spec_strings = chunk_spec_strings
 	seq_chunk_set.Chunk_spec_arrays = chunk_spec_arrays
 
-	if false {
+/*	if false {
 		chunk__seq_matchindices := make(map[string]map[string][]int)
 		missing_data_chunk_counts := make([]int, len(sequence_set.Sequences))
 		// for each sequence, consider as chunks and store sequence index in
@@ -53,7 +53,7 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 		seq_chunk_set.Sequence_set = sequence_set
 		seq_chunk_set.Chunk__seq_matchindices = chunk__seq_matchindices
 		seq_chunk_set.Missing_data_chunk_counts = missing_data_chunk_counts
-	} else {
+	} else { */
 		// index_offset := len(sequence_set.Sequences)
 		seq_chunk_set.Sequence_set = sequence_set
 		seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
@@ -62,7 +62,7 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 			id := sequence_set.Index_id[index]
 			seq_chunk_set.Add_sequence(id, seq)
 		}
-	}
+//	}
 	return &seq_chunk_set
 }
 
@@ -80,18 +80,10 @@ func Construct_empty(sequence_length int, chunk_size int, n_chunks int) *sequenc
 	return &seq_chunk_set
 }
 
-//*
 func (scs *sequence_chunk_set) Add_sequence(id string, sequence string) {
-	//	chunk_spec_strings := scs.Chunk_spec_strings
-	//	chunk_spec_arrays := scs.Chunk_spec_arrays
-	//	chunk__seq_matchindices := scs.Chunk__seq_matchindices
-	//	missing_data_chunk_counts := scs.Missing_data_chunk_counts
 	scs.Missing_data_chunk_counts = append(scs.Missing_data_chunk_counts, 0)
 	new_index := len(scs.Sequence_set.Sequences) // new index is 1 greater than the max previous index; if have N sequences already, w indices 0 through N-1, new index is N
-	//	fmt.Printf("xxx %d \n", len(scs.Sequence_set.Sequences))
 	scs.Sequence_set.Add_sequence(new_index, id, sequence)
-	//	fmt.Printf("%d %s %d %s\n", new_index, id, scs.Sequence_set.Id_index[id], scs.Sequence_set.Index_id[new_index])
-
 	for ich, csa := range scs.Chunk_spec_arrays { // loop over chunk specifiers
 		css := scs.Chunk_spec_strings[ich]
 		seq_matchindices, ok1 := scs.Chunk__seq_matchindices[css]
@@ -99,8 +91,6 @@ func (scs *sequence_chunk_set) Add_sequence(id string, sequence string) {
 			seq_matchindices = make(map[string][]int)
 			scs.Chunk__seq_matchindices[css] = seq_matchindices
 		}
-		//	for iseq, seq := range sequence_set.Sequences { // loop over the sequences
-
 		chunk_seq := get_chunk_seq(sequence, csa, &scs.Missing_data_chunk_counts[new_index])
 		matchindices, ok2 := seq_matchindices[chunk_seq] // matchindices is slice of indices of sequences which match on this chunk.
 		if !ok2 {
@@ -108,16 +98,11 @@ func (scs *sequence_chunk_set) Add_sequence(id string, sequence string) {
 			scs.Chunk__seq_matchindices[css][chunk_seq] = matchindices
 		}
 		scs.Chunk__seq_matchindices[css][chunk_seq] = append(matchindices, new_index) // push the sequence index onto appropriate slice
-		//	}
 	}
-
-} /* */
+}
 
 func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* chunkwise_match_info []mytypes.IntIntIntF64,*/, n_top int) []*mytypes.IntIntIntF64 {
-
-	//	fmt.Println(chunkwise_match_info)
 	seq_length := len(sequence)
-
 	n_seqs := len(scs.Sequence_set.Sequences)
 	n_chunks := len(scs.Chunk_spec_strings)
 
@@ -125,8 +110,6 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 	for i := 0; i < n_seqs; i++ {
 		iiif := mytypes.IntIntIntF64{i, 0, n_chunks - scs.Missing_data_chunk_counts[i], -1}
 		chunkwise_match_info[i] = &iiif
-		//	chunkwise_match_info[i].A = i
-		//	chunkwise_match_info[i].C = n_chunks - scs.Missing_data_chunk_counts[i] // number of OK chunks in seq i (OK == no missing data)
 	}
 	if seq_length != scs.Sequence_set.Sequence_length {
 		fmt.Printf("sequence lengths: %8d %8d not equal; exiting.\n", seq_length, scs.Sequence_set.Sequence_length)
@@ -146,7 +129,6 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 			}
 			chunk_seq += sequence[idx : idx+1]
 		}
-		//	fmt.Println(chunk_seq)
 		seq_matchindices, ok1 := chunk__seq_matchindices[css]
 		if ok1 {
 			matchindices, ok2 := seq_matchindices[chunk_seq]
@@ -166,18 +148,14 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 	}
 	for _, x := range chunkwise_match_info {
 		index := x.A
-		x.C -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // this is now the number of chunks with OK data in both query and subj. sequences
-		x.D = float64(x.B) / float64(x.C)                       // will sort on this. ( fraction of OK chunks which match )
-		//	fmt.Printf("# %d %d %d %g   %d %d \n", x.A, x.B, chunkwise_match_info[i].C, chunkwise_match_info[i].D, seq2_chunk_md_count, chunk_mdmd_counts[index])
+		x.C -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
+		x.D = float64(x.B) / float64(x.C)                       // will sort on this. (fraction of OK chunks which match)
 	}
 
 	if n_top < n_seqs {
 		chunkwise_match_info = quickselect(chunkwise_match_info, n_top) // top n_top matches, i
 	}
 	sort.Slice(chunkwise_match_info, func(i, j int) bool { return chunkwise_match_info[i].D > chunkwise_match_info[j].D })
-	/* for _, xxx := range chunkwise_match_info {
-		fmt.Println(*xxx)
-	} */
 	return chunkwise_match_info
 }
 
@@ -195,7 +173,6 @@ func get_chunk_set(sequence_length int, chunk_size int, n_chunks int) ([]string,
 	if n_chunks < 0 {
 		n_chunks = sequence_length / chunk_size //n_chunks_from_sequence // just do one pass through the set of sequences
 	}
-	//	fmt.Fprintf(os.Stderr, "# n_chunks: %d\n", n_chunks)
 
 	for k := 0; true; k++ {
 		is := make([]int, sequence_length) // slice of integers
