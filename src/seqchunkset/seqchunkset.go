@@ -74,9 +74,9 @@ func Construct_empty(sequence_length int, chunk_size int, n_chunks int) *sequenc
 	seq_chunk_set.Chunk_spec_strings = chunk_spec_strings
 	seq_chunk_set.Chunk_spec_arrays = chunk_spec_arrays
 
-	seq_chunk_set.Sequence_set = sequence_set.Construct_empty()
+	seq_chunk_set.Sequence_set = seq_chunk_set.Sequence_set.Construct_empty()
 	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
-	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(sequence_set.Sequences)) // missing_data_chunk_counts
+	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(seq_chunk_set.Sequence_set.Sequences)) // missing_data_chunk_counts
 	return &seq_chunk_set
 }
 

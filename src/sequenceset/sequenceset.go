@@ -20,10 +20,15 @@ type Sequence_set struct {
 }
 
 func Construct_empty() *Sequence_set {
-	var seq_set Sequence_set
-	sequences := make([]string, 0)
-	id_index := make(map[string]int)
-	index_id := make(map[int]string)
+	seq_set := Sequence_set{ 
+		make([]string, 0),        // Sequences
+		-1,                       // Sequence_length
+		make(map[int]string),     // Index_id
+		make(map[string]int) }    // Id_index
+/*	index_id := make(map[int]string) 
+	seq_set.Sequences := make([]string, 0)
+	seq_set.Id_index := make(map[string]int)
+	seq_set.Index_id := make(map[int]string) */
 	return &seq_set
 }
 
