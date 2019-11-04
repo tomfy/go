@@ -74,8 +74,8 @@ func Construct_empty(sequence_length int, chunk_size int, n_chunks int) *sequenc
 	seq_chunk_set.Chunk_spec_strings = chunk_spec_strings
 	seq_chunk_set.Chunk_spec_arrays = chunk_spec_arrays
 
-	seq_chunk_set.Sequence_set = seq_chunk_set.Sequence_set.Construct_empty()
-	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
+	seq_chunk_set.Sequence_set = sequenceset.Construct_empty()
+	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)                        // chunk__seq_matchindices
 	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(seq_chunk_set.Sequence_set.Sequences)) // missing_data_chunk_counts
 	return &seq_chunk_set
 }
@@ -171,8 +171,13 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 		//	fmt.Printf("# %d %d %d %g   %d %d \n", x.A, x.B, chunkwise_match_info[i].C, chunkwise_match_info[i].D, seq2_chunk_md_count, chunk_mdmd_counts[index])
 	}
 
-	chunkwise_match_info = quickselect(chunkwise_match_info, n_top)
+	if n_top < n_seqs {
+		chunkwise_match_info = quickselect(chunkwise_match_info, n_top) // top n_top matches, i
+	}
 	sort.Slice(chunkwise_match_info, func(i, j int) bool { return chunkwise_match_info[i].D > chunkwise_match_info[j].D })
+	/* for _, xxx := range chunkwise_match_info {
+		fmt.Println(*xxx)
+	} */
 	return chunkwise_match_info
 }
 
