@@ -25,7 +25,7 @@ func main() {
 
 	/* input file: */
 	var file string
-	flag.StringVar(&file, "f1", "", "name of first fasta file.")
+	flag.StringVar(&file, "f", "", "name of first fasta file.")
 
 	/* search control parameters */
 	var chunk_size, n_chunks, n_keep, n_reps  int
