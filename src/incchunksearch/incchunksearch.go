@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"mytypes"
 	"os"
+	"runtime"
 	"runtime/pprof"
 	"seqchunkset"
 	"sequenceset"
@@ -93,6 +94,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
 		fmt.Fprintf(os.Stderr, "# time to search: %v \n", t3.Sub(t2))
 
+		fmt.Fprintln(os.Stderr, MemUsageString())
 		// do the full distance calculation for each candidate found above based on chunkwise analysis
 		for qindex, qseq := range sequence_set.Sequences {
 			qid := sequence_set.Index_to_id(qindex)
@@ -104,7 +106,13 @@ func main() {
 				sseq_index := smatchinfo.A
 				sseq_id := sequence_set.Index_to_id(sseq_index)
 				sseq := sequence_set.Sequences[sseq_index]
-				dist := distance(sseq, qseq)
+			//	dist_old := distance_old(sseq, qseq)
+				n00_22, n11, nd1, nd2 := distance(sseq, qseq)
+				dist := float64(nd1 + 2*nd2)/float64(n00_22 + n11 + nd1 + nd2)
+			//	fmt.Printf("%v  %v\n", dist_old, dist)
+				/*if(dist != distx){
+					os.Exit(1)
+				}*/
 				id_matchcount_distance_triples[i] = mytypes.Triple_string_int_double{sseq_id, smatchinfo.B, dist}
 			}
 			sort.Slice(id_matchcount_distance_triples,
@@ -117,17 +125,20 @@ func main() {
 		}
 		t4 := time.Now()
 		fmt.Fprintf(os.Stderr, "# time to calculate distances: %v \n", t4.Sub(t3))
+		memstring := MemUsageString()
+		fmt.Fprintln(os.Stderr, memstring)
 
 		fmt.Printf("# time to construct sequence set: %v \n", t1.Sub(t0))
 		fmt.Printf("# time to search for candidates: %v \n", t3.Sub(t2))
 		fmt.Printf("# time to calculate distances: %v \n", t4.Sub(t3))
 		fmt.Printf("# total time: %v \n", t4.Sub(t0))
+		fmt.Println(memstring)
 	}
 	tend := time.Now()
 	fmt.Printf("# total time for %d reps: %v\n", n_reps, tend.Sub(tstart))
 }
 
-func distance(seq1 string, seq2 string) float64 {
+func distance_old(seq1 string, seq2 string) float64 {
 	zero_count := 0
 	one_count := 0
 	two_count := 0
@@ -171,7 +182,7 @@ func distance(seq1 string, seq2 string) float64 {
 	return distance
 }
 
-func distance_x(seq1 string, seq2 string) (Int, Int, Int, Int) {
+func distance(seq1 string, seq2 string) (int, int, int, int) {
 	//	zero_count := 0
 	one_count := 0
 	two_count := 0
@@ -196,7 +207,7 @@ func distance_x(seq1 string, seq2 string) (Int, Int, Int, Int) {
 				one_count++
 			} else if c2 == "1" {
 				//	zero_count++
-				n01_12++
+				n11++
 			} else if c2 == "2" {
 				one_count++
 			}
@@ -207,7 +218,7 @@ func distance_x(seq1 string, seq2 string) (Int, Int, Int, Int) {
 				one_count++
 			} else if c2 == "2" {
 				//	zero_count++
-				n_00_22++
+				n00_22++
 			}
 		}
 	}
@@ -318,3 +329,16 @@ func distance_x(seq1 string, seq2 string) (Int, Int, Int, Int) {
 	return distance
 }
 */
+
+func MemUsageString() string {
+        var m runtime.MemStats
+        runtime.ReadMemStats(&m)
+	result := ""
+        // For info on each, see: https://golang.org/pkg/runtime/#MemStats
+        result += fmt.Sprintf("# Allocated heap objects: %v MiB;  ", (m.Alloc)/1024/1024)
+     //   fmt.Printf("\tTotalAlloc = %v MiB", (m.TotalAlloc)/1024/1024)
+        result += fmt.Sprintf("Sys = %v MiB;  ", (m.Sys)/1024/1024)
+        result += fmt.Sprintf("Number of garbage collections: %v;  ", m.NumGC)
+	result += fmt.Sprintf("Mallocs: %v  Frees: %v  Mallocs-Frees: %v ", m.Mallocs, m.Frees, m.Mallocs-m.Frees)
+	return result
+}
