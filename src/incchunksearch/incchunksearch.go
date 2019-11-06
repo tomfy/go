@@ -4,9 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"math/rand"
 	"mytypes"
+	"os"
 	"runtime/pprof"
 	"seqchunkset"
 	"sequenceset"
@@ -28,7 +28,7 @@ func main() {
 	flag.StringVar(&file, "f", "", "name of first fasta file.")
 
 	/* search control parameters */
-	var chunk_size, n_chunks, n_keep, n_reps  int
+	var chunk_size, n_chunks, n_keep, n_reps int
 	var seed int64
 	flag.IntVar(&chunk_size, "size", 5, "number of snps in each chunk")
 	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use")
@@ -76,18 +76,18 @@ func main() {
 		// search for candidate related sequences among those that have been stored previously;
 		// then store latest sequence.
 		t2 := time.Now()
-		seqchset := seqchunkset.Construct_empty(sequence_set.Sequence_length, chunk_size, n_chunks) // 
-		qid_smatchinfos := make(map[string][]*mytypes.IntIntIntF64) // keys strings (id2), values: slices
+		seqchset := seqchunkset.Construct_empty(sequence_set.Sequence_length, chunk_size, n_chunks) //
+		qid_smatchinfos := make(map[string][]*mytypes.IntIntIntF64)                                 // keys strings (id2), values: slices
 		for qindex, qseq := range sequence_set.Sequences {
-			qid  := sequence_set.Index_to_id(qindex)
+			qid := sequence_set.Index_to_id(qindex)
 			if qindex > 0 { // search against the previously read in sequences
 				top_smatchinfos := seqchset.Get_chunk_matchindex_counts(qseq, n_keep)
-				if qindex % 1000 == 0 {
+				if qindex%1000 == 0 {
 					fmt.Fprintf(os.Stderr, "Search %d done.\n", qindex)
 				}
 				qid_smatchinfos[qid] = top_smatchinfos
-			}			
-			seqchset.Add_sequence(qid, qseq) // add latest sequence 
+			}
+			seqchset.Add_sequence(qid, qseq) // add latest sequence
 		}
 		t3 := time.Now()
 		fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
@@ -97,8 +97,8 @@ func main() {
 		for qindex, qseq := range sequence_set.Sequences {
 			qid := sequence_set.Index_to_id(qindex)
 			top_smatchinfos := qid_smatchinfos[qid]
-			
-			id_matchcount_distance_triples := make([]mytypes.Triple_string_int_double, len(top_smatchinfos) )
+
+			id_matchcount_distance_triples := make([]mytypes.Triple_string_int_double, len(top_smatchinfos))
 			fmt.Printf("%s   ", qid)
 			for i, smatchinfo := range top_smatchinfos {
 				sseq_index := smatchinfo.A
@@ -171,6 +171,57 @@ func distance(seq1 string, seq2 string) float64 {
 	return distance
 }
 
+func distance_x(seq1 string, seq2 string) (Int, Int, Int, Int) {
+	//	zero_count := 0
+	one_count := 0
+	two_count := 0
+	n00_22 := 0 // homozygous, no change, i.e. 0->0 or 2->2
+	n11 := 0    // heterozygous, no change, i.e. 1 -> 1
+	// n02 := 0 // same as two_count
+	// n01_12 := 0 // same as one_count
+	for i := 0; i < len(seq1); i++ {
+		c1 := seq1[i : i+1]
+		c2 := seq2[i : i+1]
+		if c1 == "0" {
+			if c2 == "0" {
+				//	zero_count++
+				n00_22++
+			} else if c2 == "1" {
+				one_count++
+			} else if c2 == "2" {
+				two_count++
+			}
+		} else if c1 == "1" {
+			if c2 == "0" {
+				one_count++
+			} else if c2 == "1" {
+				//	zero_count++
+				n01_12++
+			} else if c2 == "2" {
+				one_count++
+			}
+		} else if c1 == "2" {
+			if c2 == "0" {
+				two_count++
+			} else if c2 == "1" {
+				one_count++
+			} else if c2 == "2" {
+				//	zero_count++
+				n_00_22++
+			}
+		}
+	}
+	return n00_22, n11, one_count, two_count
+	/*	ok_count := n00_22 + n11 + one_count + two_count // number of sites where neither seq has missing data
+		dist_count := one_count + 2*two_count          // sums differences, i.e. 0-1 -> +=1, 0-2 -> += 2, ...
+		var distance float64
+		if ok_count > 0 {
+			distance = float64(dist_count) / float64(ok_count)
+		} else {
+			distance = -1.0 // couldn't calculate because no sites without missing data
+		}
+		return distance */
+}
 
 /* func distance_y(seq1 string, seq2 string) float64 {
 	ok_count := 0   // counts sites where neither seq has missing data
