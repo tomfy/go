@@ -13,9 +13,14 @@ type sequence_chunk_set struct {
 	Sequence_set              *sequenceset.Sequence_set
 	Chunk_size                int
 	Chunk_spec_strings        []string
-	Chunk_spec_arrays         [][]int
+	Chunk_spec_arrays         [][]int // any advantage to uint32 (or uint16) here over int?
 	Chunk__seq_matchindices   map[string]map[string][]int // keys are chunk specifier strings, values are maps, whose keys are chunk seqs (e.g. '10020101') values are slices of sequence indices
 	Missing_data_chunk_counts []int                       // Missing_data_chunk_counts[i] is the number of chunks with missing data for sequence with index i
+}
+
+type chunk_spec struct {
+	s string // '0_34_5_101'
+	a []int // 
 }
 
 // *********************** exported functions *********************************************
@@ -177,7 +182,7 @@ func get_chunk_set(sequence_length int, chunk_size int, n_chunks int) ([]string,
 	for k := 0; true; k++ {
 		is := make([]int, sequence_length) // slice of integers
 		for j, _ := range is {
-			is[j] = j
+			is[j] = int(j)
 		}
 		if k >= 0 {
 			rand.Shuffle(len(is), func(i, j int) { is[i], is[j] = is[j], is[i] })
@@ -188,7 +193,7 @@ func get_chunk_set(sequence_length int, chunk_size int, n_chunks int) ([]string,
 			var chunk_spec_array []int
 			chunk_spec_array = append(chunk_spec_array, next_gt)
 			for i := 1; i < chunk_size; i++ {
-				next_gt = used_so_far + i
+				next_gt = int(used_so_far + i)
 				chunk_spec_str += fmt.Sprintf("_%d", next_gt)
 				chunk_spec_array = append(chunk_spec_array, next_gt)
 			}
