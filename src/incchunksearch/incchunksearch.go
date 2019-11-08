@@ -80,7 +80,7 @@ func main() {
 		seqchset := seqchunkset.Construct_empty(sequence_set.Sequence_length, chunk_size, n_chunks) //
 		qid_smatchinfos := make(map[string][]*mytypes.IntIntIntF64)                                 // keys strings (id2), values: slices
 		for qindex, qseq := range sequence_set.Sequences {
-			qid := sequence_set.Index_to_id(qindex)
+			qid := sequence_set.Seq_index_to_id(qindex)
 			if qindex > 0 { // search against the previously read in sequences
 				top_smatchinfos := seqchset.Get_chunk_matchindex_counts(qseq, n_keep)
 				if qindex%1000 == 0 {
@@ -97,14 +97,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, MemUsageString())
 		// do the full distance calculation for each candidate found above based on chunkwise analysis
 		for qindex, qseq := range sequence_set.Sequences {
-			qid := sequence_set.Index_to_id(qindex)
+			qid := sequence_set.Seq_index_to_id(qindex)
 			top_smatchinfos := qid_smatchinfos[qid]
 
 			id_matchcount_distance_triples := make([]mytypes.Triple_string_int_double, len(top_smatchinfos))
 			fmt.Printf("%s   ", qid)
 			for i, smatchinfo := range top_smatchinfos {
 				sseq_index := smatchinfo.A
-				sseq_id := sequence_set.Index_to_id(sseq_index)
+				sseq_id := sequence_set.Seq_index_to_id(sseq_index)
 				sseq := sequence_set.Sequences[sseq_index]
 			//	dist_old := distance_old(sseq, qseq)
 				n00_22, n11, nd1, nd2 := distance(sseq, qseq)

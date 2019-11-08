@@ -14,21 +14,21 @@ import (
 type Sequence_set struct {
 	Sequences       []string
 	Sequence_length int
-	//	Seqs            []sequence.Sequence
-	Index_id map[int]string
-	Id_index map[string]int
+	SeqIndex_id map[int]string
+	SeqId_index map[string]int
+	SnpIndex_id map[int]string
+	SnpId_index map[string]int
 }
 
 func Construct_empty() *Sequence_set {
 	seq_set := Sequence_set{ 
 		make([]string, 0),        // Sequences
 		-1,                       // Sequence_length
-		make(map[int]string),     // Index_id
-		make(map[string]int) }    // Id_index
-/*	index_id := make(map[int]string) 
-	seq_set.Sequences := make([]string, 0)
-	seq_set.Id_index := make(map[string]int)
-	seq_set.Index_id := make(map[int]string) */
+		make(map[int]string),     // SeqIndex_id
+		make(map[string]int),     // SeqId_index
+		make(map[int]string),     // SnpIndex_id
+		make(map[string]int),     // SnpId_index
+	}
 	return &seq_set
 }
 
@@ -38,9 +38,7 @@ func Construct_from_fasta_file(filename string) *Sequence_set {
 		os.Exit(1)
 	}
 	var seq_set Sequence_set
-
 	var sequences []string
-	//	var seqs []sequence.Sequence
 	var id string
 	id_index := make(map[string]int)
 	index_id := make(map[int]string)
@@ -83,9 +81,8 @@ func Construct_from_fasta_file(filename string) *Sequence_set {
 	seq_length := min_seq_len
 	seq_set.Sequence_length = seq_length
 	seq_set.Sequences = sequences
-	seq_set.Index_id = index_id
-	seq_set.Id_index = id_index
-	//	seq_set.Seqs = seqs
+	seq_set.SeqIndex_id = index_id
+	seq_set.SeqId_index = id_index
 
 	return &seq_set
 }
@@ -99,11 +96,9 @@ func (set *Sequence_set) Add_sequence(index int, id string, sequence string) {
 		set.Sequence_length = len(sequence)
 	}
 
-	set.Index_id[index] = id
-	set.Id_index[id] = index
+	set.SeqIndex_id[index] = id
+	set.SeqId_index[id] = index
 	set.Sequences = append(set.Sequences, sequence)
-	//	fmt.Printf("%d %s  %d\n", index, id, len(set.Sequences))
-
 }
 
 func (set *Sequence_set) Add_missing_data(prob float64) {
@@ -125,6 +120,6 @@ func (set *Sequence_set) Add_missing_data(prob float64) {
 	return
 }
 
-func (set *Sequence_set) Index_to_id(index int) string {
-	return set.Index_id[index]
+func (set *Sequence_set) Seq_index_to_id(index int) string {
+	return set.SeqIndex_id[index]
 }
