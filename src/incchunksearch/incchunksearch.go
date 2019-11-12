@@ -31,7 +31,7 @@ func main() {
 	/* search control parameters */
 	var chunk_size, n_chunks, n_keep, n_reps int
 	var seed int64
-	flag.IntVar(&chunk_size, "size", 5, "number of snps in each chunk")
+	flag.IntVar(&chunk_size, "size", 4, "number of snps in each chunk")
 	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use")
 	flag.IntVar(&n_keep, "keep", 20, "# of best matches to keep")
 	flag.Int64Var(&seed, "seed", -1, "# rng seed (default: set from clock.)")

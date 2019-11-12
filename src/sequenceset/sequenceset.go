@@ -12,22 +12,24 @@ import (
 )
 
 type Sequence_set struct {
-	Sequences       []string
-	Sequence_length int
-	SeqIndex_id map[int]string
-	SeqId_index map[string]int
-	SnpIndex_id map[int]string
-	SnpId_index map[string]int
+	Sequences               []string
+	Sequence_length         int
+	SeqIndex_id             map[int]string
+	SeqId_index             map[string]int
+	SnpIndex_id             map[int]string
+	SnpId_index             map[string]int
+	Missing_data_seq_counts []int
 }
 
 func Construct_empty() *Sequence_set {
-	seq_set := Sequence_set{ 
-		make([]string, 0),        // Sequences
-		-1,                       // Sequence_length
-		make(map[int]string),     // SeqIndex_id
-		make(map[string]int),     // SeqId_index
-		make(map[int]string),     // SnpIndex_id
-		make(map[string]int),     // SnpId_index
+	seq_set := Sequence_set{
+		make([]string, 0),    // Sequences
+		-1,                   // Sequence_length
+		make(map[int]string), // SeqIndex_id
+		make(map[string]int), // SeqId_index
+		make(map[int]string), // SnpIndex_id
+		make(map[string]int), // SnpId_index
+		make([]int, 0),
 	}
 	return &seq_set
 }
@@ -122,4 +124,50 @@ func (set *Sequence_set) Add_missing_data(prob float64) {
 
 func (set *Sequence_set) Seq_index_to_id(index int) string {
 	return set.SeqIndex_id[index]
+}
+
+/* func (set *Sequence_set) Prune_snps(max_missing_data_proportion) {
+
+	pruned_seqs := make([]string, len(set.Sequences))
+	pruned_seq_length_so_far := 0
+		for j, g := chars {
+			md_prop := float64(set.Missing_data_seq_counts[j]) / len(set.Sequences)
+			if md_prop <= max_missing_data_proportion {
+				for i, seq := range set.Sequences {
+					pruned_seqs[i] += seq[
+					chars := []byte(seq)
+
+				pruned_chars = append(pruned_chars, g)
+
+}
+		}
+	}
+	return set.SeqIndex_id[index]
+} /* */
+
+func (set *Sequence_set) count_missing_data_snps() {
+	for i, seq := range set.Sequences { // loop over sequences
+		set.Missing_data_seq_counts[i] = count_missing_data_snps_in_seq(seq)
+	}
+}
+
+func (set *Sequence_set) add_snp_ids() { // for now, just make an id by prepending 'A' to the position within sequence as it appears in fasta file.
+	for i := 0; i < set.Sequence_length; i++ {
+		snp_id := "A" + string(i)
+
+		set.SnpIndex_id[i] = snp_id
+		set.SnpId_index[snp_id] = i
+	}
+}
+
+// *************** not methods ***********************
+
+func count_missing_data_snps_in_seq(seq string) int {
+	count := 0
+	for j := 0; j < len(seq); j++ { // loop over snps
+		if seq[j] == mytypes.MDchar {
+			count++
+		}
+	}
+	return count
 }
