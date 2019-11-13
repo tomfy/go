@@ -60,8 +60,8 @@ func main() {
 
 	for irep := 0; irep < n_reps; irep++ {
 		t0 := time.Now()
-		sequence_set := sequenceset.Construct_from_fasta_file(file)
-		sequence_set.Add_missing_data(missing_data_prob)
+		sequence_set := sequenceset.Construct_from_fasta_file(file, missing_data_prob)
+		// sequence_set.Add_missing_data(missing_data_prob)
 		t1 := time.Now()
 		fmt.Fprintf(os.Stderr, "# time to construct sequence set: %v \n", t1.Sub(t0))
 
