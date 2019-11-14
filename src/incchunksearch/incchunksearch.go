@@ -36,8 +36,9 @@ func main() {
 	flag.IntVar(&n_keep, "keep", 20, "# of best matches to keep")
 	flag.Int64Var(&seed, "seed", -1, "# rng seed (default: set from clock.)")
 	flag.IntVar(&n_reps, "reps", 1, "# number of times to repeat the whole search (with different random chunk sets)")
-	var missing_data_prob float64
+	var missing_data_prob, max_missing_data_proportion float64
 	flag.Float64Var(&missing_data_prob, "miss", -1, "# fraction missing data in genotypes")
+	flag.Float64Var(&max_missing_data_proportion, "max_md", -1, "# max proportion of missing data to use snp in chunk set")
 
 	flag.Parse()
 
@@ -55,12 +56,11 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
-
 	//
 
 	for irep := 0; irep < n_reps; irep++ {
 		t0 := time.Now()
-		sequence_set := sequenceset.Construct_from_fasta_file(file, missing_data_prob)
+		sequence_set := sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob)
 		// sequence_set.Add_missing_data(missing_data_prob)
 		t1 := time.Now()
 		fmt.Fprintf(os.Stderr, "# time to construct sequence set: %v \n", t1.Sub(t0))
@@ -76,13 +76,17 @@ func main() {
 		// for each sequence in set:
 		// search for candidate related sequences among those that have been stored previously;
 		// then store latest sequence.
+		total_chunk_match_count := 0
+		total_mdmd_match_count := 0
 		t2 := time.Now()
 		seqchset := seqchunkset.Construct_empty(sequence_set.Sequence_length, chunk_size, n_chunks) //
 		qid_smatchinfos := make(map[string][]*mytypes.IntIntIntF64)                                 // keys strings (id2), values: slices
 		for qindex, qseq := range sequence_set.Sequences {
 			qid := sequence_set.Seq_index_to_id(qindex)
 			if qindex > 0 { // search against the previously read in sequences
-				top_smatchinfos := seqchset.Get_chunk_matchindex_counts(qseq, n_keep)
+				top_smatchinfos, tcmc, tmdmdc := seqchset.Get_chunk_matchindex_counts(qseq, n_keep)
+				total_chunk_match_count += tcmc
+				total_mdmd_match_count += tmdmdc
 				if qindex%1000 == 0 {
 					fmt.Fprintf(os.Stderr, "Search %d done.\n", qindex)
 				}
@@ -93,6 +97,7 @@ func main() {
 		t3 := time.Now()
 		fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
 		fmt.Fprintf(os.Stderr, "# time to search: %v \n", t3.Sub(t2))
+		fmt.Fprintf(os.Stderr, "# chunk match counts; neither md: %d, both md: %d\n", total_chunk_match_count, total_mdmd_match_count)
 
 		fmt.Fprintln(os.Stderr, MemUsageString())
 		// do the full distance calculation for each candidate found above based on chunkwise analysis
@@ -132,6 +137,7 @@ func main() {
 		fmt.Printf("# time to search for candidates: %v \n", t3.Sub(t2))
 		fmt.Printf("# time to calculate distances: %v \n", t4.Sub(t3))
 		fmt.Printf("# total time: %v \n", t4.Sub(t0))
+		fmt.Printf("# chunk match counts; neither md: %d, both md: %d\n", total_chunk_match_count, total_mdmd_match_count)
 		fmt.Println(memstring)
 	}
 	tend := time.Now()

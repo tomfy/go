@@ -72,7 +72,8 @@ func (scs *sequence_chunk_set) Add_sequence(id string, sequence string) {
 	}
 }
 
-func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* chunkwise_match_info []mytypes.IntIntIntF64,*/, n_top int) []*mytypes.IntIntIntF64 {
+// search for relative of query sequence  sequence  using the seqchunkset scs.
+func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* chunkwise_match_info []mytypes.IntIntIntF64,*/, n_top int) ([]*mytypes.IntIntIntF64, int, int) {
 	seq_length := len(sequence)
 	n_seqs := len(scs.Sequence_set.Sequences)
 	n_chunks := len(scs.Chunk_specs)
@@ -108,7 +109,7 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 				if chunk_seq == "Missing_data" {
 					seq2_chunk_md_count++ // count the chunks with missing data in sequence
 					for _, mindex := range matchindices {
-						chunk_mdmd_counts[mindex]++
+						chunk_mdmd_counts[mindex]++ 
 					}
 				} else {
 					for _, mindex := range matchindices {
@@ -118,17 +119,22 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 			}
 		}
 	}
-	for _, x := range chunkwise_match_info {
-		index := x.A
+	chunk_match_total_count := 0 // matches, md in neither, summed over all chunks and all subj. sequences
+	chunk_mdmd_total_count := 0 //  'matches' md in both, summed over all chunks and all subj. sequences
+	for i, x := range chunkwise_match_info {
+		index := x.A // index of subj. sequence
+		// x.B is the number of matching chunks between query and subj
 		x.C -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
 		x.D = float64(x.B) / float64(x.C)                       // will sort on this. (fraction of OK chunks which match)
+		chunk_match_total_count += x.B
+		chunk_mdmd_total_count += chunk_mdmd_counts[i]
 	}
-
+//	fmt.Println(chunk_match_total_count, chunk_mdmd_total_count)
 	if n_top < n_seqs {
 		chunkwise_match_info = quickselect(chunkwise_match_info, n_top) // top n_top matches, i
 	}
 	sort.Slice(chunkwise_match_info, func(i, j int) bool { return chunkwise_match_info[i].D > chunkwise_match_info[j].D })
-	return chunkwise_match_info
+	return chunkwise_match_info, chunk_match_total_count, chunk_mdmd_total_count
 }
 
 // ***************************************************************************************************

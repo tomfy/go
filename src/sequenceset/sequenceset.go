@@ -22,6 +22,9 @@ type Sequence_set struct {
 	SnpId_index     map[string]int
 	SnpId_mdcount   map[string]int // keys: snp ids, values: missing data counts.
 	Sorted_snp_ids  []string // sorted by missing data, low to high.
+	Max_md_count int // only use snps with <= this number of seqs with missing data
+	N_ok_snps int // the number of snps with sufficiently small amount of missing data
+	
 }
 
 func Construct_empty() *Sequence_set {
@@ -34,11 +37,14 @@ func Construct_empty() *Sequence_set {
 		make(map[string]int), // SnpId_index
 		make(map[string]int), // SnpId_mdcount
 		make([]string, 0),    // Sorted_snp_ids
+		-1,                   // Max_md_count
+		-1,                   // N_ok_snps
+		
 	}
 	return &seq_set
 }
 
-func Construct_from_fasta_file(filename string, rand_md_rate float64) *Sequence_set {
+func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rate float64) *Sequence_set {
 	fh, err := os.Open(filename)
 	if err != nil {
 		os.Exit(1)
