@@ -6,11 +6,11 @@ import (
 	"os"
 	"regexp"
 	//	"sequence"
-	"sort"
 	"math/rand"
 	"mytypes"
-	"strings"
+	"sort"
 	"strconv"
+	"strings"
 )
 
 type Sequence_set struct {
@@ -21,13 +21,13 @@ type Sequence_set struct {
 	SnpIndex_id     map[int]string
 	SnpId_index     map[string]int
 	SnpId_mdcount   map[string]int // keys: snp ids, values: missing data counts.
-	Sorted_snp_ids  []string // sorted by missing data, low to high.
-	Max_md_count int // only use snps with <= this number of seqs with missing data
-	N_ok_snps int // the number of snps with sufficiently small amount of missing data
-	
+	Sorted_snp_ids  []string       // sorted by missing data, low to high.
+	Max_md_count    int            // only use snps with <= this number of seqs with missing data
+	N_ok_snps       int            // the number of snps with sufficiently small amount of missing data
+
 }
 
-func Construct_empty() *Sequence_set {
+/* func Construct_empty() *Sequence_set {
 	seq_set := Sequence_set{
 		make([]string, 0),    // Sequences
 		-1,                   // Sequence_length
@@ -39,10 +39,10 @@ func Construct_empty() *Sequence_set {
 		make([]string, 0),    // Sorted_snp_ids
 		-1,                   // Max_md_count
 		-1,                   // N_ok_snps
-		
+
 	}
 	return &seq_set
-}
+} /* */
 
 func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rate float64) *Sequence_set {
 	fh, err := os.Open(filename)
@@ -98,27 +98,33 @@ func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rat
 
 	seq_set.SnpIndex_id = make(map[int]string)
 	seq_set.SnpId_index = make(map[string]int)
-	
-	seq_set.add_snp_ids() //	
+
+	seq_set.add_snp_ids() // for now these are just A0, A1, A2, etc
+	fmt.Fprintf(os.Stderr, "n snps: %d %d\n", len(seq_set.SnpId_index), len(seq_set.SnpIndex_id))
+
 	seq_set.Add_missing_data(rand_md_rate)
+	fmt.Fprintf(os.Stderr, "n snps: %d %d\n", len(seq_set.SnpId_index), len(seq_set.SnpIndex_id))
 
 
-	seq_set.SnpId_mdcount = make(map[string]int)
-	for _, snp_id := range seq_set.SnpIndex_id {
+//	for snp_index, snp_id := range seq_set.SnpIndex_id {
 		// seq_set.SnpId_mdcount[snp_id] =
-			seq_set.missing_data_count(snp_id)	
-	}
+//		fmt.Fprintf(os.Stderr, "snp index, id: %d  %s\n", snp_index, snp_id)
+		seq_set.missing_data_counts()
+//	}
 
-/*	for snpid, mdcount := range seq_set.SnpId_mdcount{
+	max_md_count := int(max_md_prop * float64(seq_length))
+	seq_set.Max_md_count = max_md_count
+	/*	for snpid, mdcount := range seq_set.SnpId_mdcount{
 		fmt.Println(snpid, mdcount)
 	} */
-	
-	// sort by amount of missing data	
-	seq_set.Sorted_snp_ids = keys_sorted_by_value(seq_set.SnpId_mdcount)
-	for i, snp_id := range seq_set.Sorted_snp_ids {
-		fmt.Println(i, snp_id, seq_set.SnpId_mdcount[snp_id])
-	}
-	
+
+	// sort by amount of missing data
+	seq_set.Sorted_snp_ids, seq_set.N_ok_snps = keys_sorted_by_value(seq_set.SnpId_mdcount, seq_set.Max_md_count)
+ /*	for i, snp_id := range seq_set.Sorted_snp_ids {
+	//	fmt.Println(i, snp_id, seq_set.SnpId_mdcount[snp_id])
+
+	} /* */
+
 	return &seq_set
 }
 
@@ -147,7 +153,7 @@ func (set *Sequence_set) Add_missing_data(prob float64) {
 					chars[j] = mytypes.MDchar
 				}
 			}
-		//	fmt.Println(string(chars))
+			//	fmt.Println(string(chars))
 			sequences[i] = string(chars)
 			//	fmt.Println("AAAA", sequences[i])
 		}
@@ -179,13 +185,17 @@ func (set *Sequence_set) Seq_index_to_id(index int) string {
 	return set.SeqIndex_id[index]
 } /* */
 
-func (set *Sequence_set) missing_data_count(snp_id string) { // for the snp with id snp_id, count the number of sequences with missing data
-	snp_idx := set.SnpId_index[snp_id]
-	for _, seq := range set.Sequences { // loop over sequences
-	//	fmt.Println("BBB: ", seq)
-		if seq[snp_idx:snp_idx+1] == string(mytypes.MDchar) {
-			fmt.Println("snp_id: ", snp_id, snp_idx, seq[snp_idx: snp_idx+1])
-			set.SnpId_mdcount[snp_id]++
+func (set *Sequence_set) missing_data_counts() { // for the snp with id snp_id, count the number of sequences with missing data
+	//	fmt.Fprintf(os.Stderr, "nnn snps: %d\n", len(set.SnpId_index))
+	set.SnpId_mdcount = make(map[string]int)
+	for snp_id, snp_idx := range set.SnpId_index {
+		set.SnpId_mdcount[snp_id] = 0
+		for _, seq := range set.Sequences { // loop over sequences
+			//	fmt.Println("BBB: ", seq)
+			if seq[snp_idx:snp_idx+1] == string(mytypes.MDchar) {
+			//	fmt.Println("snp_id: ", snp_id, snp_idx, seq[snp_idx:snp_idx+1])
+				set.SnpId_mdcount[snp_id]++
+			}
 		}
 	}
 }
@@ -209,7 +219,7 @@ func (set *Sequence_set) add_snp_ids() { // for now, just make an id by prependi
 		}
 	}
 	return count
-} /* 
+} /*
 
 func count_seqs_w_missing_snp_data(seq string) int {
 	count := 0
@@ -222,11 +232,17 @@ func count_seqs_w_missing_snp_data(seq string) int {
 } /**/
 
 // for a map w string keys, int values, return a slice containing the keys, but sorted with smallest value ones at beginning.
-func keys_sorted_by_value(amap map[string]int) []string {
+func keys_sorted_by_value(amap map[string]int, max_mds int) ([]string, int) {
 	keys := make([]string, 0, len(amap))
-	for k := range amap {
+	n_ok := 0
+	for k, v := range amap {
 		keys = append(keys, k)
+	//	fmt.Fprintf(os.Stderr, "k v: %s  %d\n", k, v)
+		if v <= max_mds {
+			n_ok++
+		}
 	}
-	sort.Slice(keys, func(i, j int) bool { return amap[keys[i]] < amap[keys[j]] } )
-	return keys
+	sort.Slice(keys, func(i, j int) bool { return amap[keys[i]] < amap[keys[j]] })
+	fmt.Fprintf(os.Stderr, "max_mds %d  n_ok: %d \n", max_mds, n_ok)
+	return keys, n_ok // the keys sorted by value (small to large), and the number of values <= max_mds
 }

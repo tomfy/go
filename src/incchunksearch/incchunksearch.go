@@ -38,7 +38,7 @@ func main() {
 	flag.IntVar(&n_reps, "reps", 1, "# number of times to repeat the whole search (with different random chunk sets)")
 	var missing_data_prob, max_missing_data_proportion float64
 	flag.Float64Var(&missing_data_prob, "miss", -1, "# fraction missing data in genotypes")
-	flag.Float64Var(&max_missing_data_proportion, "max_md", -1, "# max proportion of missing data to use snp in chunk set")
+	flag.Float64Var(&max_missing_data_proportion, "max_md", 0.1, "# max proportion of missing data to use snp in chunk set")
 
 	flag.Parse()
 
@@ -79,11 +79,11 @@ func main() {
 		total_chunk_match_count := 0
 		total_mdmd_match_count := 0
 		t2 := time.Now()
-		seqchset := seqchunkset.Construct_empty(sequence_set.Sequence_length, chunk_size, n_chunks) //
+		seqchset := seqchunkset.Construct_empty(sequence_set, chunk_size, n_chunks) //
 		qid_smatchinfos := make(map[string][]*mytypes.IntIntIntF64)                                 // keys strings (id2), values: slices
 		for qindex, qseq := range sequence_set.Sequences {
 			qid := sequence_set.Seq_index_to_id(qindex)
-			if qindex > 0 { // search against the previously read in sequences
+			if true { // search against the previously read-in sequences
 				top_smatchinfos, tcmc, tmdmdc := seqchset.Get_chunk_matchindex_counts(qseq, n_keep)
 				total_chunk_match_count += tcmc
 				total_mdmd_match_count += tmdmdc
