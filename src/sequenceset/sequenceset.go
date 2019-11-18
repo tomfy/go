@@ -209,6 +209,72 @@ func (set *Sequence_set) add_snp_ids() { // for now, just make an id by prependi
 	}
 } /* */
 
+func (seq_set *Sequence_set) Candidate_distances_AA(qid_matchcandidates  map[string][]*mytypes.IntIntIntF64) {
+ // for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
+ // this is for the case of searching for matches within a single data Sequence_set (i.e. 'AA') 
+	for qindex, qseq := range seq_set.Sequences {
+			qid := seq_set.Seq_index_to_id(qindex)
+			matchcandidates := qid_matchcandidates[qid]
+
+			id_matchcount_distance_triples := make([]mytypes.StringF64F64, len(matchcandidates))
+			fmt.Printf("%s   ", qid)
+			for i, matchinfo := range matchcandidates {
+				sseq_index := matchinfo.A
+				sseq_id := seq_set.Seq_index_to_id(sseq_index)
+				sseq := seq_set.Sequences[sseq_index]
+			//	dist_old := distance_old(sseq, qseq)
+				n00_22, n11, nd1, nd2 := distance(sseq, qseq)
+				dist := float64(nd1 + 2*nd2)/float64(n00_22 + n11 + nd1 + nd2)
+			//	fmt.Printf("%v  %v\n", dist_old, dist)
+				/*if(dist != distx){
+					os.Exit(1)
+				}*/
+				id_matchcount_distance_triples[i] = mytypes.StringF64F64{sseq_id, matchinfo.D, dist}
+			}
+			sort.Slice(id_matchcount_distance_triples,
+				func(i, j int) bool { return id_matchcount_distance_triples[i].C < id_matchcount_distance_triples[j].C })
+
+			for _, a_triple := range id_matchcount_distance_triples {
+				fmt.Printf("%s %6.5f %6.5f  ", a_triple.A, a_triple.B, a_triple.C)
+			}
+			fmt.Printf("\n")
+		}
+
+}
+
+func (q_seq_set *Sequence_set) Candidate_distances_AB(s_seq_set *Sequence_set, qid_matchcandidates  map[string][]*mytypes.IntIntIntF64) {
+ // for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
+ // this is for the case of searching for matches within a single data Sequence_set (i.e. 'AA') 
+	for qindex, qseq := range q_seq_set.Sequences {
+			qid := q_seq_set.Seq_index_to_id(qindex)
+			matchcandidates := qid_matchcandidates[qid]
+
+			id_matchcount_distance_triples := make([]mytypes.StringF64F64, len(matchcandidates))
+			fmt.Printf("%s   ", qid)
+			for i, matchinfo := range matchcandidates {
+				sseq_index := matchinfo.A
+				sseq_id := s_seq_set.Seq_index_to_id(sseq_index)
+				sseq := s_seq_set.Sequences[sseq_index]
+			//	dist_old := distance_old(sseq, qseq)
+				n00_22, n11, nd1, nd2 := distance(sseq, qseq)
+				dist := float64(nd1 + 2*nd2)/float64(n00_22 + n11 + nd1 + nd2)
+			//	fmt.Printf("%v  %v\n", dist_old, dist)
+				/*if(dist != distx){
+					os.Exit(1)
+				}*/
+				id_matchcount_distance_triples[i] = mytypes.StringF64F64{sseq_id, matchinfo.D, dist}
+			}
+			sort.Slice(id_matchcount_distance_triples,
+				func(i, j int) bool { return id_matchcount_distance_triples[i].C < id_matchcount_distance_triples[j].C })
+
+			for _, a_triple := range id_matchcount_distance_triples {
+				fmt.Printf("%s %6.5f %6.5f  ", a_triple.A, a_triple.B, a_triple.C)
+			}
+			fmt.Printf("\n")
+		}
+
+}
+
 // *************** not methods ***********************
 
 /* func count_missing_data_snps_in_seq(seq string) int {
@@ -245,4 +311,57 @@ func keys_sorted_by_value(amap map[string]int, max_mds int) ([]string, int) {
 	sort.Slice(keys, func(i, j int) bool { return amap[keys[i]] < amap[keys[j]] })
 	fmt.Fprintf(os.Stderr, "max_mds %d  n_ok: %d \n", max_mds, n_ok)
 	return keys, n_ok // the keys sorted by value (small to large), and the number of values <= max_mds
+}
+
+
+func distance(seq1 string, seq2 string) (int, int, int, int) {
+	//	zero_count := 0
+	one_count := 0
+	two_count := 0
+	n00_22 := 0 // homozygous, no change, i.e. 0->0 or 2->2
+	n11 := 0    // heterozygous, no change, i.e. 1 -> 1
+	// n02 := 0 // same as two_count
+	// n01_12 := 0 // same as one_count
+	for i := 0; i < len(seq1); i++ {
+		c1 := seq1[i : i+1]
+		c2 := seq2[i : i+1]
+		if c1 == "0" {
+			if c2 == "0" {
+				//	zero_count++
+				n00_22++
+			} else if c2 == "1" {
+				one_count++
+			} else if c2 == "2" {
+				two_count++
+			}
+		} else if c1 == "1" {
+			if c2 == "0" {
+				one_count++
+			} else if c2 == "1" {
+				//	zero_count++
+				n11++
+			} else if c2 == "2" {
+				one_count++
+			}
+		} else if c1 == "2" {
+			if c2 == "0" {
+				two_count++
+			} else if c2 == "1" {
+				one_count++
+			} else if c2 == "2" {
+				//	zero_count++
+				n00_22++
+			}
+		}
+	}
+	return n00_22, n11, one_count, two_count
+	/*	ok_count := n00_22 + n11 + one_count + two_count // number of sites where neither seq has missing data
+		dist_count := one_count + 2*two_count          // sums differences, i.e. 0-1 -> +=1, 0-2 -> += 2, ...
+		var distance float64
+		if ok_count > 0 {
+			distance = float64(dist_count) / float64(ok_count)
+		} else {
+			distance = -1.0 // couldn't calculate because no sites without missing data
+		}
+		return distance */
 }

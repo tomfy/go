@@ -9,7 +9,7 @@ import (
 	"sort"
 )
 
-type sequence_chunk_set struct {
+type Sequence_chunk_set struct {
 	Sequence_set              *sequenceset.Sequence_set
 	Chunk_size                int
 	Chunk_specs               []chunk_spec
@@ -25,9 +25,9 @@ type chunk_spec struct {
 
 // *********************** exported functions *********************************************
 
-func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int) *sequence_chunk_set {
+func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int) *Sequence_chunk_set {
 
-	var seq_chunk_set sequence_chunk_set
+	var seq_chunk_set Sequence_chunk_set
 	seq_chunk_set.Chunk_specs = get_chunk_set(sequence_set, chunk_size, n_chunks)
 	seq_chunk_set.Sequence_set = sequence_set
 	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
@@ -42,9 +42,9 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 }
 
 // /*
-func Construct_empty(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int) *sequence_chunk_set {
+func Construct_empty(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int) *Sequence_chunk_set {
 
-	var seq_chunk_set sequence_chunk_set
+	var seq_chunk_set Sequence_chunk_set
 	seq_chunk_set.Chunk_specs = get_chunk_set(sequence_set, chunk_size, n_chunks)
 	seq_chunk_set.Sequence_set = sequence_set                                                        // sequenceset.Construct_empty()
 	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)                        // chunk__seq_matchindices
@@ -53,7 +53,7 @@ func Construct_empty(sequence_set *sequenceset.Sequence_set, chunk_size int, n_c
 	return &seq_chunk_set
 } /* */
 
-func (scs *sequence_chunk_set) Add_sequence() { // id string, sequence string) {
+func (scs *Sequence_chunk_set) Add_sequence() { // id string, sequence string) {
 
 	new_index := scs.N_chunked_sequences // this is the number of sequences in the sequence_chunk_set so far
 	seq_set := scs.Sequence_set
@@ -90,7 +90,7 @@ func (scs *sequence_chunk_set) Add_sequence() { // id string, sequence string) {
 }
 
 // search for relative of query sequence  sequence  using the seqchunkset scs.
-func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* chunkwise_match_info []mytypes.IntIntIntF64,*/, n_top int) ([]*mytypes.IntIntIntF64, int, int) {
+func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* chunkwise_match_info []mytypes.IntIntIntF64,*/, n_top int) ([]*mytypes.IntIntIntF64, int, int) {
 	seq_length := len(sequence)
 	n_subj_seqs := scs.N_chunked_sequences
 	n_chunks := len(scs.Chunk_specs)
@@ -155,6 +155,49 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 	}
 	sort.Slice(chunkwise_match_info, func(i, j int) bool { return chunkwise_match_info[i].D > chunkwise_match_info[j].D })
 	return chunkwise_match_info, chunk_match_total_count, chunk_mdmd_total_count
+}
+
+// incrementally search and construct the seqchset, i.e. search each seq. against existing seqchset, then
+// add it to the seqchset.
+func (scs *Sequence_chunk_set) Search_and_construct(n_keep int) (map[string][]*mytypes.IntIntIntF64, int, int) {
+	qid_smatchinfos := make(map[string][]*mytypes.IntIntIntF64)                                 // keys strings (id2), values: slices
+	total_chunk_match_count := 0
+	total_mdmd_match_count := 0
+		for qindex, qseq := range scs.Sequence_set.Sequences {
+			qid := scs.Sequence_set.Seq_index_to_id(qindex)
+			if true { // search against the previously read-in sequences
+				top_smatchinfos, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qseq, n_keep)
+				total_chunk_match_count += tcmc
+				total_mdmd_match_count += tmdmdc
+				if qindex%1000 == 0 {
+					fmt.Fprintf(os.Stderr, "Search %d done.\n", qindex)
+				}
+				qid_smatchinfos[qid] = top_smatchinfos
+			}
+			scs.Add_sequence() // add latest sequence
+		}
+	return qid_smatchinfos, total_chunk_match_count, total_mdmd_match_count
+}
+
+// search for relatives of q_seq_set  in scs 
+func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_keep int) (map[string][]*mytypes.IntIntIntF64, int, int) {
+	qid_smatchinfos := make(map[string][]*mytypes.IntIntIntF64)                                 // keys strings (id2), values: slices
+	total_chunk_match_count := 0
+	total_mdmd_match_count := 0
+		for qindex, qseq := range q_seq_set.Sequences {
+			qid := q_seq_set.Seq_index_to_id(qindex)
+			if true { // search against the previously read-in sequences
+				top_smatchinfos, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qseq, n_keep)
+				total_chunk_match_count += tcmc
+				total_mdmd_match_count += tmdmdc
+				if qindex%1000 == 0 {
+					fmt.Fprintf(os.Stderr, "Search %d done.\n", qindex)
+				}
+				qid_smatchinfos[qid] = top_smatchinfos
+			}
+		//	scs.Add_sequence() // add latest sequence
+		}
+	return qid_smatchinfos, total_chunk_match_count, total_mdmd_match_count
 }
 
 // ***************************************************************************************************
