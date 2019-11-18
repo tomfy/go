@@ -59,6 +59,7 @@ func main() {
 	//
 
 	for irep := 0; irep < n_reps; irep++ {
+
 		t0 := time.Now()
 		sequence_set := sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob)
 		// sequence_set.Add_missing_data(missing_data_prob)
@@ -92,7 +93,7 @@ func main() {
 				}
 				qid_smatchinfos[qid] = top_smatchinfos
 			}
-			seqchset.Add_sequence(qid, qseq) // add latest sequence
+			seqchset.Add_sequence() // add latest sequence
 		}
 		t3 := time.Now()
 		fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
@@ -105,7 +106,7 @@ func main() {
 			qid := sequence_set.Seq_index_to_id(qindex)
 			top_smatchinfos := qid_smatchinfos[qid]
 
-			id_matchcount_distance_triples := make([]mytypes.Triple_string_int_double, len(top_smatchinfos))
+			id_matchcount_distance_triples := make([]mytypes.StringF64F64, len(top_smatchinfos))
 			fmt.Printf("%s   ", qid)
 			for i, smatchinfo := range top_smatchinfos {
 				sseq_index := smatchinfo.A
@@ -118,13 +119,13 @@ func main() {
 				/*if(dist != distx){
 					os.Exit(1)
 				}*/
-				id_matchcount_distance_triples[i] = mytypes.Triple_string_int_double{sseq_id, smatchinfo.B, dist}
+				id_matchcount_distance_triples[i] = mytypes.StringF64F64{sseq_id, smatchinfo.D, dist}
 			}
 			sort.Slice(id_matchcount_distance_triples,
 				func(i, j int) bool { return id_matchcount_distance_triples[i].C < id_matchcount_distance_triples[j].C })
 
 			for _, a_triple := range id_matchcount_distance_triples {
-				fmt.Printf("%s %d %6.5f  ", a_triple.A, a_triple.B, a_triple.C)
+				fmt.Printf("%s %6.5f %6.5f  ", a_triple.A, a_triple.B, a_triple.C)
 			}
 			fmt.Printf("\n")
 		}
@@ -139,7 +140,9 @@ func main() {
 		fmt.Printf("# total time: %v \n", t4.Sub(t0))
 		fmt.Printf("# chunk match counts; neither md: %d, both md: %d\n", total_chunk_match_count, total_mdmd_match_count)
 		fmt.Println(memstring)
-	}
+
+	} // end loop over reps
+
 	tend := time.Now()
 	fmt.Printf("# total time for %d reps: %v\n", n_reps, tend.Sub(tstart))
 }

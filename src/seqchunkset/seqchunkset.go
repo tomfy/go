@@ -15,11 +15,12 @@ type sequence_chunk_set struct {
 	Chunk_specs               []chunk_spec
 	Chunk__seq_matchindices   map[string]map[string][]int // keys are chunk specifier strings, values are maps, whose keys are chunk seqs (e.g. '10020101') values are slices of sequence indices
 	Missing_data_chunk_counts []int                       // Missing_data_chunk_counts[i] is the number of chunks with missing data for sequence with index i
+	N_chunked_sequences       int // number of sequences entered into Chunk__seq_matchindices, Missing_data_chunk_counts so far.
 }
 
 type chunk_spec struct {
-	s string // 'A0 A34 A5 A101'
-	a []string  //
+	s string   // e.g. 'A0 A34 A5 A101'
+	a []string //
 }
 
 // *********************** exported functions *********************************************
@@ -31,29 +32,39 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 	seq_chunk_set.Sequence_set = sequence_set
 	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
 	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(sequence_set.Sequences)) // missing_data_chunk_counts
-	for index, seq := range sequence_set.Sequences {
-		id := sequence_set.SeqIndex_id[index]
-		seq_chunk_set.Add_sequence(id, seq)
+	for i := 0; i < len(sequence_set.Sequences); i++ {
+	//	id := sequence_set.SeqIndex_id[index]
+		seq_chunk_set.Add_sequence()
+		
 	}
 	//	}
 	return &seq_chunk_set
 }
 
-// /* 
+// /*
 func Construct_empty(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int) *sequence_chunk_set {
 
 	var seq_chunk_set sequence_chunk_set
 	seq_chunk_set.Chunk_specs = get_chunk_set(sequence_set, chunk_size, n_chunks)
-	seq_chunk_set.Sequence_set = sequence_set  // sequenceset.Construct_empty()
+	seq_chunk_set.Sequence_set = sequence_set                                                        // sequenceset.Construct_empty()
 	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)                        // chunk__seq_matchindices
-	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(seq_chunk_set.Sequence_set.Sequences)) // missing_data_chunk_counts
+	seq_chunk_set.Missing_data_chunk_counts = make([]int, 0) // missing_data_chunk_counts
+	seq_chunk_set.N_chunked_sequences = 0
 	return &seq_chunk_set
 } /* */
 
-func (scs *sequence_chunk_set) Add_sequence(id string, sequence string) {
+func (scs *sequence_chunk_set) Add_sequence() { // id string, sequence string) {
+
+	new_index := scs.N_chunked_sequences // this is the number of sequences in the sequence_chunk_set so far
+	seq_set := scs.Sequence_set
+	sequence := seq_set.Sequences[new_index]
+//	id := seq_set.SeqIndex_id[new_index]
+
 	scs.Missing_data_chunk_counts = append(scs.Missing_data_chunk_counts, 0)
-	new_index := len(scs.Sequence_set.Sequences) // new index is 1 greater than the max previous index; if have N sequences already, w indices 0 through N-1, new index is N
-	scs.Sequence_set.Add_sequence(new_index, id, sequence)
+	// new_index := len(scs.Sequence_set.Sequences) // new index is 1 greater than the max previous index; if have N sequences already, w indices 0 through N-1, new index is N
+
+	//	scs.Sequence_set.Add_sequence(new_index, id, sequence)
+
 	for _, chsp := range scs.Chunk_specs { // loop over chunk specifiers
 		csa := chsp.a // chunk spec in array form
 		css := chsp.s // chunk spec in string form
@@ -70,17 +81,23 @@ func (scs *sequence_chunk_set) Add_sequence(id string, sequence string) {
 			scs.Chunk__seq_matchindices[css][chunk_seq] = matchindices
 		}
 		scs.Chunk__seq_matchindices[css][chunk_seq] = append(matchindices, new_index) // push the sequence index onto appropriate slice
+/*  fmt.Fprintln(os.Stderr, "X")
+		 for ii, mindex := range scs.Chunk__seq_matchindices[css][chunk_seq] {
+			fmt.Fprintln(os.Stderr, "css:  ", css, "  chunk_seq: ", chunk_seq, "ii: ", ii, "  mindex: ", mindex)
+		} /* */
 	}
+	scs.N_chunked_sequences++
 }
 
 // search for relative of query sequence  sequence  using the seqchunkset scs.
 func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* chunkwise_match_info []mytypes.IntIntIntF64,*/, n_top int) ([]*mytypes.IntIntIntF64, int, int) {
 	seq_length := len(sequence)
-	n_seqs := len(scs.Sequence_set.Sequences)
+	n_subj_seqs := scs.N_chunked_sequences
 	n_chunks := len(scs.Chunk_specs)
-
-	chunkwise_match_info := make([]*mytypes.IntIntIntF64, n_seqs)
-	for i := 0; i < n_seqs; i++ {
+	fmt.Fprintln(os.Stderr, "n_subj_seqs: ", n_subj_seqs, "  seq_length: ", seq_length)
+	chunk_mdmd_counts := make([]int, n_subj_seqs) // chunk_mdmd_counts[i] is number of chunks in (subj) sequence i which are missing there and also in query sequence (i.e. the one whose relatives we are searching for)
+	chunkwise_match_info := make([]*mytypes.IntIntIntF64, n_subj_seqs)
+	for i := 0; i < n_subj_seqs; i++ {
 		iiif := mytypes.IntIntIntF64{i, 0, n_chunks - scs.Missing_data_chunk_counts[i], -1}
 		chunkwise_match_info[i] = &iiif
 	}
@@ -89,7 +106,7 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 		os.Exit(1)
 	}
 	seq2_chunk_md_count := 0
-	chunk_mdmd_counts := make([]int, n_seqs) // chunk_mdmd_counts[i] is number of chunks in (db) sequence i which are missing there and also in sequence (i.e. the one whose relatives we are searching for)
+
 	chunk__seq_matchindices := scs.Chunk__seq_matchindices
 	for _, chsp := range scs.Chunk_specs { // loop over chunk specifiers
 		csa := chsp.a
@@ -111,10 +128,11 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 				if chunk_seq == "Missing_data" {
 					seq2_chunk_md_count++ // count the chunks with missing data in sequence
 					for _, mindex := range matchindices {
-						chunk_mdmd_counts[mindex]++ 
+						chunk_mdmd_counts[mindex]++
 					}
 				} else {
 					for _, mindex := range matchindices {
+					//	fmt.Fprintln(os.Stderr, "Mindex:  ", mindex)
 						chunkwise_match_info[mindex].B++
 					}
 				}
@@ -122,7 +140,7 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 		}
 	}
 	chunk_match_total_count := 0 // matches, md in neither, summed over all chunks and all subj. sequences
-	chunk_mdmd_total_count := 0 //  'matches' md in both, summed over all chunks and all subj. sequences
+	chunk_mdmd_total_count := 0  //  'matches' md in both, summed over all chunks and all subj. sequences
 	for i, x := range chunkwise_match_info {
 		index := x.A // index of subj. sequence
 		// x.B is the number of matching chunks between query and subj
@@ -131,8 +149,8 @@ func (scs *sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 		chunk_match_total_count += x.B
 		chunk_mdmd_total_count += chunk_mdmd_counts[i]
 	}
-//	fmt.Println(chunk_match_total_count, chunk_mdmd_total_count)
-	if n_top < n_seqs {
+	//	fmt.Println(chunk_match_total_count, chunk_mdmd_total_count)
+	if n_top < n_subj_seqs {
 		chunkwise_match_info = quickselect(chunkwise_match_info, n_top) // top n_top matches, i
 	}
 	sort.Slice(chunkwise_match_info, func(i, j int) bool { return chunkwise_match_info[i].D > chunkwise_match_info[j].D })
@@ -164,24 +182,24 @@ func get_chunk_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chu
 		}
 		// is is now a slice of sequence_length integers, (0 through sequence_length-1) in randomized order.
 		for used_so_far := 0; used_so_far+chunk_size <= sequence_set.N_ok_snps; used_so_far += chunk_size {
-					//	fmt.Fprintln(os.Stderr, used_so_far, is[used_so_far])
+			//	fmt.Fprintln(os.Stderr, used_so_far, is[used_so_far])
 
-			snp_id := sequence_set.Sorted_snp_ids[ is[used_so_far] ]
+			snp_id := sequence_set.Sorted_snp_ids[is[used_so_far]]
 			//	fmt.Fprintln(os.Stderr, snp_id, used_so_far, is[used_so_far])
-		//	fmt.Fprintf(os.Stderr, "xxx %s ", snp_id)
+			//	fmt.Fprintf(os.Stderr, "xxx %s ", snp_id)
 			chunk_spec_str := snp_id // fmt.Sprintf("_%d", next_gt)
-			
-			var chunk_spec_array []string // int
+
+			var chunk_spec_array []string                       // int
 			chunk_spec_array = append(chunk_spec_array, snp_id) // next_gt)  // snp_id)
 			for i := 1; i < chunk_size; i++ {
 				//		next_gt = is[used_so_far + i]
-				snp_id = sequence_set.Sorted_snp_ids[ is[used_so_far + i] ]
-					//	fmt.Fprintf(os.Stderr, "%s ", snp_id)
-				
-				chunk_spec_str += " " + snp_id  // fmt.Sprintf("_%d", next_gt)
+				snp_id = sequence_set.Sorted_snp_ids[is[used_so_far+i]]
+				//	fmt.Fprintf(os.Stderr, "%s ", snp_id)
+
+				chunk_spec_str += " " + snp_id                      // fmt.Sprintf("_%d", next_gt)
 				chunk_spec_array = append(chunk_spec_array, snp_id) // next_gt)
 			}
-		//	fmt.Fprintf(os.Stderr, "\n")
+			//	fmt.Fprintf(os.Stderr, "\n")
 			chunk_specs = append(chunk_specs, chunk_spec{chunk_spec_str, chunk_spec_array})
 			if len(chunk_specs) >= n_chunks {
 				return chunk_specs
@@ -195,7 +213,7 @@ func get_chunk_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chu
 func get_chunk_seq(snpid_index map[string]int, seq string, csa []string, md_count *int) string {
 	chunk_seq := ""
 	for _, snp_id := range csa {
-		snp_index := snpid_index[snp_id]		
+		snp_index := snpid_index[snp_id]
 		char := seq[snp_index : snp_index+1]
 		if char == string(mytypes.MDchar) {
 			chunk_seq = "Missing_data"

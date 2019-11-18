@@ -19,3 +19,9 @@ type Triple_string_int_double struct {
 	B int
 	C float64
 }
+
+type StringF64F64 struct {
+	A string
+	B float64
+	C float64
+}
