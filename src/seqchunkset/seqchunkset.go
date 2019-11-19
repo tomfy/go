@@ -94,7 +94,7 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, n_to
 	seq_length := len(sequence)
 	n_subj_seqs := scs.N_chunked_sequences
 	n_chunks := len(scs.Chunk_specs)
-	fmt.Fprintln(os.Stderr, "n_subj_seqs: ", n_subj_seqs, "  seq_length: ", seq_length)
+//	fmt.Fprintln(os.Stderr, "n_subj_seqs: ", n_subj_seqs, "  seq_length: ", seq_length)
 	chunk_mdmd_counts := make([]int, n_subj_seqs) // chunk_mdmd_counts[i] is number of chunks in (subj) sequence i which are missing there and also in query sequence (i.e. the one whose relatives we are searching for)
 	chunkwise_match_info := make([]*mytypes.IntIntIntF64, n_subj_seqs)
 	for i := 0; i < n_subj_seqs; i++ {

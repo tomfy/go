@@ -209,7 +209,8 @@ func (set *Sequence_set) add_snp_ids() { // for now, just make an id by prependi
 	}
 } /* */
 
-func (seq_set *Sequence_set) Candidate_distances_AA(qid_matchcandidates  map[string][]*mytypes.IntIntIntF64) {
+/* 
+func (seq_set *Sequence_set) Candidate_distances_AA(qid_matchcandidates  map[string][]*mytypes.IntIntIntF64, qid_matches map[string][]mytypes.StringF64F64) {
  // for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
  // this is for the case of searching for matches within a single data Sequence_set (i.e. 'AA') 
 	for qindex, qseq := range seq_set.Sequences {
@@ -226,9 +227,7 @@ func (seq_set *Sequence_set) Candidate_distances_AA(qid_matchcandidates  map[str
 				n00_22, n11, nd1, nd2 := distance(sseq, qseq)
 				dist := float64(nd1 + 2*nd2)/float64(n00_22 + n11 + nd1 + nd2)
 			//	fmt.Printf("%v  %v\n", dist_old, dist)
-				/*if(dist != distx){
-					os.Exit(1)
-				}*/
+			
 				id_matchcount_distance_triples[i] = mytypes.StringF64F64{sseq_id, matchinfo.D, dist}
 			}
 			sort.Slice(id_matchcount_distance_triples,
@@ -240,11 +239,11 @@ func (seq_set *Sequence_set) Candidate_distances_AA(qid_matchcandidates  map[str
 			fmt.Printf("\n")
 		}
 
-}
+} /* */
 
-func (q_seq_set *Sequence_set) Candidate_distances_AB(s_seq_set *Sequence_set, qid_matchcandidates  map[string][]*mytypes.IntIntIntF64) {
+func (q_seq_set *Sequence_set) Candidate_distances_AB(s_seq_set *Sequence_set, qid_matchcandidates  map[string][]*mytypes.IntIntIntF64, qid_matches map[string][]mytypes.StringF64F64) {
  // for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
- // this is for the case of searching for matches within a single data Sequence_set (i.e. 'AA') 
+ // this is for the case of searching for matches between two distinct Sequence_sets (i.e. 'AB') 
 	for qindex, qseq := range q_seq_set.Sequences {
 			qid := q_seq_set.Seq_index_to_id(qindex)
 			matchcandidates := qid_matchcandidates[qid]
@@ -262,8 +261,13 @@ func (q_seq_set *Sequence_set) Candidate_distances_AB(s_seq_set *Sequence_set, q
 				/*if(dist != distx){
 					os.Exit(1)
 				}*/
-				id_matchcount_distance_triples[i] = mytypes.StringF64F64{sseq_id, matchinfo.D, dist}
+				matchinfo := mytypes.StringF64F64{sseq_id, matchinfo.D, dist}
+				id_matchcount_distance_triples[i] = matchinfo
+				qid_matches[qid] = append(qid_matches[qid], matchinfo)
 			}
+
+		
+		
 			sort.Slice(id_matchcount_distance_triples,
 				func(i, j int) bool { return id_matchcount_distance_triples[i].C < id_matchcount_distance_triples[j].C })
 

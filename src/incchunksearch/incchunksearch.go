@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	//	"mytypes"
+	"mytypes"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -61,17 +61,19 @@ func main() {
 
 	files := strings.Split(files_string, ",")
 
+//	search_time := time.Now()
+//	distance_time := search_time
+	search_time := int64(0)
+	distance_time := int64(0)
 	for irep := 0; irep < n_reps; irep++ {
 		data_sets := make([]*seqchunkset.Sequence_chunk_set, 0, len(files))
 		cumulative_total_chunk_match_count := 0
 		cumulative_total_mdmd_match_count := 0
-		idpair_matchinfo := make(map[string]StringF64F64)
+		qid_matches := make(map[string][]mytypes.StringF64F64) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
 		for _, file := range files {
-			t0 := time.Now()
+		
 			q_sequence_set := sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob)
 			// sequence_set.Add_missing_data(missing_data_prob)
-			t1 := time.Now()
-			fmt.Fprintf(os.Stderr, "# time to construct sequence set: %v \n", t1.Sub(t0))
 
 			if n_chunks < 0 {
 				n_chunks = int(q_sequence_set.Sequence_length / chunk_size)
@@ -83,42 +85,40 @@ func main() {
 
 			// for each sequence in set:
 			// search for candidate related sequences among those that have been stored previously;
-			// then store latest sequence.
-
-			t2 := time.Now()
+			// then store latest sequence
 
 
 			//
 			fmt.Println("n data sets: ", len(data_sets))
 			for _, data_set := range data_sets{
+				t_before := time.Now()
 				qid_matchcandidates, total_chunk_match_count, total_mdmd_match_count := data_set.Search(q_sequence_set, n_keep)
+			//	fmt.Println("# XXXX search time: ", time.Now().Sub(t_before))
+				search_time += int64(time.Now().Sub(t_before))
 				cumulative_total_chunk_match_count += total_chunk_match_count
 				cumulative_total_mdmd_match_count += total_mdmd_match_count
-			//	fmt.Fprintln(os.Stdout, len(qid_matchcandidates), total_chunk_match_count, total_mdmd_match_count)
-				q_sequence_set.Candidate_distances_AB(data_set.Sequence_set, qid_matchcandidates)
+				//	fmt.Fprintln(os.Stdout, len(qid_matchcandidates), total_chunk_match_count, total_mdmd_match_count)
+				t_before = time.Now()
+				q_sequence_set.Candidate_distances_AB(data_set.Sequence_set, qid_matchcandidates, qid_matches)
+				distance_time += int64(time.Now().Sub(t_before))
 			}
-				
+
+			t_before := time.Now()
 			seqchset := seqchunkset.Construct_empty(q_sequence_set, chunk_size, n_chunks) //
 			qid_matchcandidates, total_chunk_match_count, total_mdmd_match_count := seqchset.Search_and_construct(n_keep)
 			data_sets = append(data_sets, seqchset)
-			t3 := time.Now()
+			search_time += int64(time.Now().Sub(t_before))
 			fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
-			fmt.Fprintf(os.Stderr, "# time to search: %v \n", t3.Sub(t2))
 			fmt.Fprintf(os.Stderr, "# chunk match counts; neither md: %d, both md: %d\n",
 				total_chunk_match_count, total_mdmd_match_count)
 			fmt.Fprintln(os.Stderr, MemUsageString())
   
-			q_sequence_set.Candidate_distances_AA(qid_matchcandidates)
-
-			t4 := time.Now()
-			fmt.Fprintf(os.Stderr, "# time to calculate distances: %v \n", t4.Sub(t3))
+			//	q_sequence_set.Candidate_distances_AA(qid_matchcandidates, qid_matches)
+			t_before = time.Now()
+			q_sequence_set.Candidate_distances_AB(q_sequence_set, qid_matchcandidates, qid_matches)
+			distance_time += int64(time.Now().Sub(t_before))
 			memstring := MemUsageString()
 			fmt.Fprintln(os.Stderr, memstring)
-
-			fmt.Printf("# time to construct sequence set: %v \n", t1.Sub(t0))
-			fmt.Printf("# time to search for candidates: %v \n", t3.Sub(t2))
-			fmt.Printf("# time to calculate distances: %v \n", t4.Sub(t3))
-			fmt.Printf("# total time: %v \n", t4.Sub(t0))
 			fmt.Printf("# chunk match counts; neither md: %d, both md: %d\n", total_chunk_match_count, total_mdmd_match_count)
 			fmt.Println(memstring)
 
@@ -128,6 +128,7 @@ func main() {
 
 	tend := time.Now()
 	fmt.Printf("# total time for %d reps: %v\n", n_reps, tend.Sub(tstart))
+	fmt.Printf("# search time: %10.3f  distance_time: %10.3f \n", 0.001*float64(search_time/1000000), 0.001*float64(distance_time/1000000))
 }
 
 // ******************************************************************************
