@@ -64,7 +64,7 @@ func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rat
 	scanner := bufio.NewScanner(fh)
 	for scanner.Scan() {
 		line := scanner.Text()
-		r, _ := regexp.Compile("^>([A-Za-z0-9]+).*")
+		r, _ := regexp.Compile("^>([A-Za-z0-9_.-]+)")
 		if r.MatchString(line) { // >id line
 			match_strings := r.FindStringSubmatch(line)
 			id = match_strings[1]

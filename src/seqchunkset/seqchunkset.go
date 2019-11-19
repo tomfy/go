@@ -90,7 +90,7 @@ func (scs *Sequence_chunk_set) Add_sequence() { // id string, sequence string) {
 }
 
 // search for relative of query sequence  sequence  using the seqchunkset scs.
-func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* chunkwise_match_info []mytypes.IntIntIntF64,*/, n_top int) ([]*mytypes.IntIntIntF64, int, int) {
+func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, n_top int) ([]*mytypes.IntIntIntF64, int, int) {
 	seq_length := len(sequence)
 	n_subj_seqs := scs.N_chunked_sequences
 	n_chunks := len(scs.Chunk_specs)
@@ -154,6 +154,8 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(sequence string /* ch
 		chunkwise_match_info = quickselect(chunkwise_match_info, n_top) // top n_top matches, i
 	}
 	sort.Slice(chunkwise_match_info, func(i, j int) bool { return chunkwise_match_info[i].D > chunkwise_match_info[j].D })
+/* for _, match_info := range chunkwise_match_info {	
+} /* */
 	return chunkwise_match_info, chunk_match_total_count, chunk_mdmd_total_count
 }
 

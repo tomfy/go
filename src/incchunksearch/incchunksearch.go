@@ -65,6 +65,7 @@ func main() {
 		data_sets := make([]*seqchunkset.Sequence_chunk_set, 0, len(files))
 		cumulative_total_chunk_match_count := 0
 		cumulative_total_mdmd_match_count := 0
+		idpair_matchinfo := make(map[string]StringF64F64)
 		for _, file := range files {
 			t0 := time.Now()
 			q_sequence_set := sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob)
@@ -85,6 +86,7 @@ func main() {
 			// then store latest sequence.
 
 			t2 := time.Now()
+
 
 			//
 			fmt.Println("n data sets: ", len(data_sets))
