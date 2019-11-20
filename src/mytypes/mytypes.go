@@ -12,7 +12,7 @@ type IntIntIntF64 struct {
 	B int
 	C int
 	D float64
-}
+} 
 
 type StringF64F64 struct {
 	A string

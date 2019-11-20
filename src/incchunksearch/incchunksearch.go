@@ -9,11 +9,13 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
-	"seqchunkset"
-	"sequenceset"
+	"bufio"
 	"strings"
 	//	"sort"
 	"time"
+//
+	"seqchunkset"
+	"sequenceset"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpy profile to file")
@@ -59,10 +61,16 @@ func main() {
 	}
 	//
 
-	files := strings.Split(files_string, ",")
+	files := strings.Split(files_string, ",") // either all fasta files, or all matrix files!
 
-//	search_time := time.Now()
-//	distance_time := search_time
+	test_file := files[0] // filename of first file, now check to see whether is fasta or matrix
+	input_format := what_is_format(test_file)
+	fmt.Println("input_format: ", input_format)
+	if input_format == "other" {
+		os.Exit(1) 
+	}
+	//	search_time := time.Now()
+	//	distance_time := search_time
 	search_time := int64(0)
 	distance_time := int64(0)
 	for irep := 0; irep < n_reps; irep++ {
@@ -71,8 +79,13 @@ func main() {
 		cumulative_total_mdmd_match_count := 0
 		qid_matches := make(map[string][]mytypes.StringF64F64) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
 		for _, file := range files {
-		
-			q_sequence_set := sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob)
+
+			var q_sequence_set *sequenceset.Sequence_set
+			if input_format == "fasta" {
+				q_sequence_set = sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob)
+			}else if input_format == "matrix" {
+				q_sequence_set = sequenceset.Construct_from_matrix_file(file, max_missing_data_proportion)
+			}
 			// sequence_set.Add_missing_data(missing_data_prob)
 
 			if n_chunks < 0 {
@@ -87,13 +100,12 @@ func main() {
 			// search for candidate related sequences among those that have been stored previously;
 			// then store latest sequence
 
-
 			//
 			fmt.Println("n data sets: ", len(data_sets))
-			for _, data_set := range data_sets{
+			for _, data_set := range data_sets {
 				t_before := time.Now()
 				qid_matchcandidates, total_chunk_match_count, total_mdmd_match_count := data_set.Search(q_sequence_set, n_keep)
-			//	fmt.Println("# XXXX search time: ", time.Now().Sub(t_before))
+				//	fmt.Println("# XXXX search time: ", time.Now().Sub(t_before))
 				search_time += int64(time.Now().Sub(t_before))
 				cumulative_total_chunk_match_count += total_chunk_match_count
 				cumulative_total_mdmd_match_count += total_mdmd_match_count
@@ -112,7 +124,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "# chunk match counts; neither md: %d, both md: %d\n",
 				total_chunk_match_count, total_mdmd_match_count)
 			fmt.Fprintln(os.Stderr, MemUsageString())
-  
+
 			//	q_sequence_set.Candidate_distances_AA(qid_matchcandidates, qid_matches)
 			t_before = time.Now()
 			q_sequence_set.Candidate_distances_AB(q_sequence_set, qid_matchcandidates, qid_matches)
@@ -132,6 +144,37 @@ func main() {
 }
 
 // ******************************************************************************
+
+func what_is_format(filename string) string { // returns "matrix", "fasta" or "other"
+	fmt.Println("filename: ", filename)
+	fh, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("Couldn't open ", filename)
+		os.Exit(1)
+	} 
+	scanner := bufio.NewScanner(fh)
+	buf := make([]byte, 10000)
+	scanner.Buffer(buf, 1000000) // the default here was 64*1024 - not big enough! Prob. need to 
+//	fmt.Printf("max token size of scanner: %d\n", scanner.maxTokenSize) 
+//	fmt.Printf("scanner.Scan() returned: %t \n", scanner.Scan())
+//	fmt.Println("[" + scanner.Text() +"]")
+	for scanner.Scan() {
+		line := scanner.Text()
+		fmt.Println("Line: [" + line[0:50])
+		fields := strings.Fields(line)
+		fmt.Println("first line, first field: ", fields[0])
+		if fields[0] == "MARKER" {
+			return "marker"
+		}else if fields[0][0:1] == ">" {
+			return "fasta"
+		}else{
+			fmt.Println("fields[0]: ", fields[0])
+			return "other"
+		}
+		break
+	}
+	return "other"
+}
 
 func MemUsageString() string {
 	var m runtime.MemStats
@@ -281,5 +324,3 @@ func MemUsageString() string {
 	return distance
 }
 */
-
-
