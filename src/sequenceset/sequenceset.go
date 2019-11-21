@@ -51,12 +51,12 @@ func Construct_from_matrix_file(filename string, max_md_prop float64) *Sequence_
 	}
 	var seq_set Sequence_set
 	var sequences []string
-//	var id string
+
 	id_index := make(map[string]int)
 	index_id := make(map[int]string)
 	marker_id_index := make(map[string]int)
 	marker_index_id := make(map[int]string)
-	
+
 	// read sequences from file into sequences slice
 	// and set up maps from ids to indices and vice versa
 	min_seq_len := 1000000000
@@ -64,10 +64,12 @@ func Construct_from_matrix_file(filename string, max_md_prop float64) *Sequence_
 
 	seq_index := 0
 	scanner := bufio.NewScanner(fh)
+	scanner.Buffer(make([]byte, 10000), 1000000) // th
 	line_number := 0
 	for scanner.Scan() {
 		line := scanner.Text()
 		fields := strings.Fields(line) // split on one or more whitespace chars.
+	//	fmt.Fprintln(os.Stderr, "line number: ", line_number)
 		if line_number == 0 { // this line should have MARKER and then marker ids (tab separated)
 			if fields[0] != "MARKER" {
 				os.Exit(1)
@@ -77,21 +79,23 @@ func Construct_from_matrix_file(filename string, max_md_prop float64) *Sequence_
 				marker_id_index[id] = index
 				marker_index_id[index] = id
 			}
-		}else{
+
+		} else {
 			seq_id := fields[0]
 			index_id[seq_index] = seq_id
 			id_index[seq_id] = seq_index
 			genotypes_sequence := strings.Join(fields[1:], "")
+		//	fmt.Fprintln(os.Stderr, "g sequence: ", genotypes_sequence)
 			sequences = append(sequences, genotypes_sequence)
-				if len(genotypes_sequence) < min_seq_len {
+			if len(genotypes_sequence) < min_seq_len {
 				min_seq_len = len(genotypes_sequence)
 			}
 			if len(genotypes_sequence) > max_seq_len {
 				max_seq_len = len(genotypes_sequence)
 			}
 			seq_index++
-		}
-	
+		} /* */
+		line_number++
 	} // end of reading line lines of file
 	if min_seq_len != max_seq_len { // all sequence lengths must be the same, otherwise exit.
 		fmt.Printf("min, max sequence lengths: %8d %8d lengths not equal; exiting.\n", min_seq_len, max_seq_len)
@@ -103,35 +107,22 @@ func Construct_from_matrix_file(filename string, max_md_prop float64) *Sequence_
 	seq_set.SeqIndex_id = index_id
 	seq_set.SeqId_index = id_index
 
-	seq_set.SnpIndex_id = make(map[int]string)
-	seq_set.SnpId_index = make(map[string]int)
-/*
-	seq_set.add_snp_ids() // for now these are just A0, A1, A2, etc
-	fmt.Fprintf(os.Stderr, "n snps: %d %d\n", len(seq_set.SnpId_index), len(seq_set.SnpIndex_id))
-
-	seq_set.Add_missing_data(rand_md_rate)
-	fmt.Fprintf(os.Stderr, "n snps: %d %d\n", len(seq_set.SnpId_index), len(seq_set.SnpIndex_id))
-
-
-//	for snp_index, snp_id := range seq_set.SnpIndex_id {
-		// seq_set.SnpId_mdcount[snp_id] =
-//		fmt.Fprintf(os.Stderr, "snp index, id: %d  %s\n", snp_index, snp_id)
-		seq_set.missing_data_counts()
-//	}
-
+	seq_set.SnpIndex_id = marker_index_id  // make(map[int]string)
+	seq_set.SnpId_index = marker_id_index  // make(map[string]int)
+//	fmt.Fprintln(os.Stderr, "before missing_data_counts")
+	seq_set.missing_data_counts()
+//	fmt.Fprintln(os.Stderr, "after missing_data_counts")
 	max_md_count := int(max_md_prop * float64(seq_length))
 	seq_set.Max_md_count = max_md_count
 
-	// sort by amount of missing data
-	seq_set.Sorted_snp_ids, seq_set.N_ok_snps = keys_sorted_by_value(seq_set.SnpId_mdcount, seq_set.Max_md_count)
- /*	for i, snp_id := range seq_set.Sorted_snp_ids {
-	//	fmt.Println(i, snp_id, seq_set.SnpId_mdcount[snp_id])
-
+	//   sort by amount of missing data
+	   seq_set.Sorted_snp_ids, seq_set.N_ok_snps = keys_sorted_by_value(seq_set.SnpId_mdcount, seq_set.Max_md_count)
+/*	for i, snp_id := range seq_set.Sorted_snp_ids {
+			fmt.Println(i, snp_id, seq_set.SnpId_mdcount[snp_id])
 	} /* */
-
+	
 	return &seq_set
 }
-
 
 func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rate float64) *Sequence_set {
 	fh, err := os.Open(filename)
@@ -153,7 +144,7 @@ func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rat
 	scanner := bufio.NewScanner(fh)
 	for scanner.Scan() {
 		line := scanner.Text()
-		r, _ := regexp.Compile("^>([A-Za-z0-9_.-]+)")
+		r, _ := regexp.Compile(`^>(\S+)`)
 		if r.MatchString(line) { // >id line
 			match_strings := r.FindStringSubmatch(line)
 			id = match_strings[1]
@@ -194,12 +185,11 @@ func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rat
 	seq_set.Add_missing_data(rand_md_rate)
 	fmt.Fprintf(os.Stderr, "n snps: %d %d\n", len(seq_set.SnpId_index), len(seq_set.SnpIndex_id))
 
-
-//	for snp_index, snp_id := range seq_set.SnpIndex_id {
-		// seq_set.SnpId_mdcount[snp_id] =
-//		fmt.Fprintf(os.Stderr, "snp index, id: %d  %s\n", snp_index, snp_id)
-		seq_set.missing_data_counts()
-//	}
+	//	for snp_index, snp_id := range seq_set.SnpIndex_id {
+	// seq_set.SnpId_mdcount[snp_id] =
+	//		fmt.Fprintf(os.Stderr, "snp index, id: %d  %s\n", snp_index, snp_id)
+	seq_set.missing_data_counts()
+	//	}
 
 	max_md_count := int(max_md_prop * float64(seq_length))
 	seq_set.Max_md_count = max_md_count
@@ -209,10 +199,9 @@ func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rat
 
 	// sort by amount of missing data
 	seq_set.Sorted_snp_ids, seq_set.N_ok_snps = keys_sorted_by_value(seq_set.SnpId_mdcount, seq_set.Max_md_count)
- /*	for i, snp_id := range seq_set.Sorted_snp_ids {
-	//	fmt.Println(i, snp_id, seq_set.SnpId_mdcount[snp_id])
-
-	} /* */
+	/*	for i, snp_id := range seq_set.Sorted_snp_ids {
+			fmt.Println(i, snp_id, seq_set.SnpId_mdcount[snp_id])
+		} /* */
 
 	return &seq_set
 }
@@ -255,37 +244,21 @@ func (set *Sequence_set) Seq_index_to_id(index int) string {
 	return set.SeqIndex_id[index]
 }
 
-/* func (set *Sequence_set) Prune_snps(max_missing_data_proportion) {
-
-	pruned_seqs := make([]string, len(set.Sequences))
-	pruned_seq_length_so_far := 0
-		for j, g := chars {
-			md_prop := float64(set.Missing_data_seq_counts[j]) / len(set.Sequences)
-			if md_prop <= max_missing_data_proportion {
-				for i, seq := range set.Sequences {
-					pruned_seqs[i] += seq[
-					chars := []byte(seq)
-
-				pruned_chars = append(pruned_chars, g)
-
-}
-		}
-	}
-	return set.SeqIndex_id[index]
-} /* */
-
 func (set *Sequence_set) missing_data_counts() { // for the snp with id snp_id, count the number of sequences with missing data
 	//	fmt.Fprintf(os.Stderr, "nnn snps: %d\n", len(set.SnpId_index))
 	set.SnpId_mdcount = make(map[string]int)
+	fmt.Fprintln(os.Stderr, "len SnpId_index: ", len(set.SnpId_index))
 	for snp_id, snp_idx := range set.SnpId_index {
 		set.SnpId_mdcount[snp_id] = 0
 		for _, seq := range set.Sequences { // loop over sequences
 			//	fmt.Println("BBB: ", seq)
 			if seq[snp_idx:snp_idx+1] == string(mytypes.MDchar) {
-			//	fmt.Println("snp_id: ", snp_id, snp_idx, seq[snp_idx:snp_idx+1])
+				//	fmt.Println("snp_id: ", snp_id, snp_idx, seq[snp_idx:snp_idx+1])
 				set.SnpId_mdcount[snp_id]++
 			}
+			
 		}
+	//	fmt.Fprintln(os.Stderr, "snp id, md count: ", snp_id, set.SnpId_mdcount[snp_id])
 	}
 }
 
@@ -298,10 +271,10 @@ func (set *Sequence_set) add_snp_ids() { // for now, just make an id by prependi
 	}
 } /* */
 
-/* 
+/*
 func (seq_set *Sequence_set) Candidate_distances_AA(qid_matchcandidates  map[string][]*mytypes.IntIntIntF64, qid_matches map[string][]mytypes.StringF64F64) {
  // for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
- // this is for the case of searching for matches within a single data Sequence_set (i.e. 'AA') 
+ // this is for the case of searching for matches within a single data Sequence_set (i.e. 'AA')
 	for qindex, qseq := range seq_set.Sequences {
 			qid := seq_set.Seq_index_to_id(qindex)
 			matchcandidates := qid_matchcandidates[qid]
@@ -316,7 +289,7 @@ func (seq_set *Sequence_set) Candidate_distances_AA(qid_matchcandidates  map[str
 				n00_22, n11, nd1, nd2 := distance(sseq, qseq)
 				dist := float64(nd1 + 2*nd2)/float64(n00_22 + n11 + nd1 + nd2)
 			//	fmt.Printf("%v  %v\n", dist_old, dist)
-			
+
 				id_matchcount_distance_triples[i] = mytypes.StringF64F64{sseq_id, matchinfo.D, dist}
 			}
 			sort.Slice(id_matchcount_distance_triples,
@@ -330,41 +303,41 @@ func (seq_set *Sequence_set) Candidate_distances_AA(qid_matchcandidates  map[str
 
 } /* */
 
-func (q_seq_set *Sequence_set) Candidate_distances_AB(s_seq_set *Sequence_set, qid_matchcandidates  map[string][]*mytypes.IntIntIntF64, qid_matches map[string][]mytypes.StringF64F64) {
- // for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
- // this is for the case of searching for matches between two distinct Sequence_sets (i.e. 'AB') 
+func (q_seq_set *Sequence_set) Candidate_distances_AB(s_seq_set *Sequence_set, qid_matchcandidates map[string][]*mytypes.IntIntIntF64, qid_matches map[string][]mytypes.StringF64F64) {
+	// for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
+	// this is for the case of searching for matches between two distinct Sequence_sets (i.e. 'AB')
 	for qindex, qseq := range q_seq_set.Sequences {
-			qid := q_seq_set.Seq_index_to_id(qindex)
-			matchcandidates := qid_matchcandidates[qid]
+		qid := q_seq_set.Seq_index_to_id(qindex)
+		matchcandidates := qid_matchcandidates[qid]
 
-			id_matchcount_distance_triples := make([]mytypes.StringF64F64, len(matchcandidates))
-			fmt.Printf("%s   ", qid)
-			for i, matchinfo := range matchcandidates {
-				sseq_index := matchinfo.A
-				sseq_id := s_seq_set.Seq_index_to_id(sseq_index)
-				sseq := s_seq_set.Sequences[sseq_index]
+		id_matchcount_distance_triples := make([]mytypes.StringF64F64, len(matchcandidates))
+		fmt.Printf("%s   ", qid)
+		for i, matchinfo := range matchcandidates {
+			sseq_index := matchinfo.A
+			sseq_id := s_seq_set.Seq_index_to_id(sseq_index)
+			sseq := s_seq_set.Sequences[sseq_index]
 			//	dist_old := distance_old(sseq, qseq)
-				n00_22, n11, nd1, nd2 := distance(sseq, qseq)
-				dist := float64(nd1 + 2*nd2)/float64(n00_22 + n11 + nd1 + nd2)
+			n00_22, n11, nd1, nd2 := distance(sseq, qseq)
+			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+		//	hgmr := float64(nd2) / float64(n00_22 + nd2)
+		//	agmr := float64(nd1+nd2) / float64(n00_22+n11+nd1+nd2)
 			//	fmt.Printf("%v  %v\n", dist_old, dist)
-				/*if(dist != distx){
-					os.Exit(1)
-				}*/
-				matchinfo := mytypes.StringF64F64{sseq_id, matchinfo.D, dist}
-				id_matchcount_distance_triples[i] = matchinfo
-				qid_matches[qid] = append(qid_matches[qid], matchinfo)
-			}
-
-		
-		
-			sort.Slice(id_matchcount_distance_triples,
-				func(i, j int) bool { return id_matchcount_distance_triples[i].C < id_matchcount_distance_triples[j].C })
-
-			for _, a_triple := range id_matchcount_distance_triples {
-				fmt.Printf("%s %6.5f %6.5f  ", a_triple.A, a_triple.B, a_triple.C)
-			}
-			fmt.Printf("\n")
+			/*if(dist != distx){
+				os.Exit(1)
+			}*/
+			matchinfo := mytypes.StringF64F64{sseq_id, matchinfo.D, dist}
+			id_matchcount_distance_triples[i] = matchinfo
+			qid_matches[qid] = append(qid_matches[qid], matchinfo)
 		}
+
+		sort.Slice(id_matchcount_distance_triples,
+			func(i, j int) bool { return id_matchcount_distance_triples[i].C < id_matchcount_distance_triples[j].C })
+
+		for _, a_triple := range id_matchcount_distance_triples {
+			fmt.Printf("%s %6.5f %6.5f  ", a_triple.A, a_triple.B, a_triple.C)
+		}
+		fmt.Printf("\n")
+	}
 
 }
 
@@ -396,7 +369,7 @@ func keys_sorted_by_value(amap map[string]int, max_mds int) ([]string, int) {
 	n_ok := 0
 	for k, v := range amap {
 		keys = append(keys, k)
-	//	fmt.Fprintf(os.Stderr, "k v: %s  %d\n", k, v)
+		//	fmt.Fprintf(os.Stderr, "k v: %s  %d\n", k, v)
 		if v <= max_mds {
 			n_ok++
 		}
@@ -405,7 +378,6 @@ func keys_sorted_by_value(amap map[string]int, max_mds int) ([]string, int) {
 	fmt.Fprintf(os.Stderr, "max_mds %d  n_ok: %d \n", max_mds, n_ok)
 	return keys, n_ok // the keys sorted by value (small to large), and the number of values <= max_mds
 }
-
 
 func distance(seq1 string, seq2 string) (int, int, int, int) {
 	//	zero_count := 0
