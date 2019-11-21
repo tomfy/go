@@ -93,7 +93,7 @@ func (scs *Sequence_chunk_set) Add_sequence() { // id string, sequence string) {
 }
 
 // search for relative of query sequence  sequence  using the seqchunkset scs.
-func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, n_top int) ([]*mytypes.IntIntIntF64, int, int) {
+func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, sequence string, n_top int) ([]*mytypes.IntIntIntF64, int, int) {
 	seq_length := len(sequence)
 	n_subj_seqs := scs.N_chunked_sequences
 	n_chunks := len(scs.Chunk_specs)
@@ -150,6 +150,10 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(sequence string, n_to
 		TestEqual(i, index) // exit if not equal
 		// x.B is the number of matching chunks between query and subj
 		x.C -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
+		if x.C <= 0 {
+			fmt.Fprintln(os.Stderr, "qseq_id: ", qseq_id, "  s index: ", index, " mathcount: ", x.B, " x.C: ", x.C)
+			os.Exit(1)
+		}
 		x.D = float64(x.B) / float64(x.C)                       // will sort on this. (fraction of OK chunks which match)
 		chunk_match_total_count += x.B
 		chunk_mdmd_total_count += chunk_mdmd_counts[i]
@@ -173,7 +177,7 @@ func (scs *Sequence_chunk_set) Search_and_construct(n_keep int) (map[string][]*m
 	for qindex, qseq := range scs.Sequence_set.Sequences {
 		qid := scs.Sequence_set.Seq_index_to_id(qindex)
 		if true { // search against the previously read-in sequences
-			top_smatchinfos, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qseq, n_keep)
+			top_smatchinfos, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qid, qseq, n_keep)
 			total_chunk_match_count += tcmc
 			total_mdmd_match_count += tmdmdc
 			if qindex%1000 == 0 {
@@ -194,7 +198,7 @@ func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_kee
 	for qindex, qseq := range q_seq_set.Sequences {
 		qid := q_seq_set.Seq_index_to_id(qindex)
 		if true { // search against the previously read-in sequences
-			top_smatchinfos, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qseq, n_keep)
+			top_smatchinfos, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qid, qseq, n_keep)
 			total_chunk_match_count += tcmc
 			total_mdmd_match_count += tmdmdc
 			if qindex%1000 == 0 {

@@ -61,11 +61,11 @@ func main() {
 	}
 	//
 
-	files := strings.Split(files_string, ",") // either all fasta files, or all matrix files!
+	files := strings.Split(files_string, ",") // fasta files, or matrix files!
 
 	test_file := files[0] // filename of first file, now check to see whether is fasta or matrix
 	input_format := what_is_format(test_file)
-	fmt.Println("input_format: ", input_format)
+	fmt.Println("# input format: ", input_format)
 	if input_format == "other" {
 		os.Exit(1) 
 	}
@@ -101,7 +101,7 @@ func main() {
 			// then store latest sequence
 
 			//
-			fmt.Println("n data sets: ", len(data_sets))
+			fmt.Println("# n data sets: ", len(data_sets))
 			for _, data_set := range data_sets {
 				t_before := time.Now()
 				qid_matchcandidates, total_chunk_match_count, total_mdmd_match_count := data_set.Search(q_sequence_set, n_keep)
@@ -146,29 +146,29 @@ func main() {
 // ******************************************************************************
 
 func what_is_format(filename string) string { // returns "matrix", "fasta" or "other"
-	fmt.Println("filename: ", filename)
+//	fmt.Println("filename: ", filename)
 	fh, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("Couldn't open ", filename)
 		os.Exit(1)
 	} 
 	scanner := bufio.NewScanner(fh)
-	buf := make([]byte, 10000)
-	scanner.Buffer(buf, 1000000) // the default here was 64*1024 - not big enough! Prob. need to 
+//	buf := make([]byte, 10000)
+	scanner.Buffer(make([]byte, 10000), 1000000) // the default here was 64*1024 - not big enough! Prob. need to 
 //	fmt.Printf("max token size of scanner: %d\n", scanner.maxTokenSize) 
 //	fmt.Printf("scanner.Scan() returned: %t \n", scanner.Scan())
 //	fmt.Println("[" + scanner.Text() +"]")
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Println("Line: [" + line[0:50])
+	//	fmt.Println("Line: [" + line[0:50])
 		fields := strings.Fields(line)
-		fmt.Println("first line, first field: ", fields[0])
+	//	fmt.Println("first line, first field: ", fields[0])
 		if fields[0] == "MARKER" {
-			return "marker"
+			return "matrix"
 		}else if fields[0][0:1] == ">" {
 			return "fasta"
 		}else{
-			fmt.Println("fields[0]: ", fields[0])
+			fmt.Println("Unknown file format. ", fields[0])
 			return "other"
 		}
 		break
