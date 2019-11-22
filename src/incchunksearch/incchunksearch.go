@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
@@ -9,11 +10,10 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
-	"bufio"
 	"strings"
 	//	"sort"
 	"time"
-//
+	//
 	"seqchunkset"
 	"sequenceset"
 )
@@ -67,7 +67,7 @@ func main() {
 	input_format := what_is_format(test_file)
 	fmt.Println("# input format: ", input_format)
 	if input_format == "other" {
-		os.Exit(1) 
+		os.Exit(1)
 	}
 	//	search_time := time.Now()
 	//	distance_time := search_time
@@ -83,7 +83,7 @@ func main() {
 			var q_sequence_set *sequenceset.Sequence_set
 			if input_format == "fasta" {
 				q_sequence_set = sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob)
-			}else if input_format == "matrix" {
+			} else if input_format == "matrix" {
 				q_sequence_set = sequenceset.Construct_from_matrix_file(file, max_missing_data_proportion)
 			}
 			// sequence_set.Add_missing_data(missing_data_prob)
@@ -101,10 +101,13 @@ func main() {
 			// then store latest sequence
 
 			//
-			fmt.Println("# n data sets: ", len(data_sets))
+			fmt.Printf("# n data sets: %d\n", len(data_sets))
 			for _, data_set := range data_sets {
 				t_before := time.Now()
-				qid_matchcandidates, total_chunk_match_count, total_mdmd_match_count := data_set.Search(q_sequence_set, n_keep)
+				qid_matchcandidates, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := data_set.Search(q_sequence_set, n_keep, false)
+				if len(qid_badmatches) > 0 {
+					fmt.Println("#  there are bad matches.", len(qid_badmatches))
+				}
 				//	fmt.Println("# XXXX search time: ", time.Now().Sub(t_before))
 				search_time += int64(time.Now().Sub(t_before))
 				cumulative_total_chunk_match_count += total_chunk_match_count
@@ -117,20 +120,24 @@ func main() {
 
 			t_before := time.Now()
 			seqchset := seqchunkset.Construct_empty(q_sequence_set, chunk_size, n_chunks) //
-			qid_matchcandidates, total_chunk_match_count, total_mdmd_match_count := seqchset.Search_and_construct(n_keep)
+			qid_matchcandidates, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := seqchset.Search(q_sequence_set, n_keep, true)
+				// seqchset.Search_and_construct(n_keep)
+			if len(qid_badmatches) > 0 {
+				fmt.Println("# there are bad matches.", len(qid_badmatches))
+			}
 			data_sets = append(data_sets, seqchset)
 			search_time += int64(time.Now().Sub(t_before))
 			fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
 			fmt.Fprintf(os.Stderr, "# chunk match counts; neither md: %d, both md: %d\n",
 				total_chunk_match_count, total_mdmd_match_count)
-			fmt.Fprintln(os.Stderr, MemUsageString())
+			fmt.Fprintln(os.Stderr, "# ", MemUsageString())
 
 			//	q_sequence_set.Candidate_distances_AA(qid_matchcandidates, qid_matches)
 			t_before = time.Now()
 			q_sequence_set.Candidate_distances_AB(q_sequence_set, qid_matchcandidates, qid_matches)
 			distance_time += int64(time.Now().Sub(t_before))
 			memstring := MemUsageString()
-			fmt.Fprintln(os.Stderr, memstring)
+			fmt.Println("# ", memstring)
 			fmt.Printf("# chunk match counts; neither md: %d, both md: %d\n", total_chunk_match_count, total_mdmd_match_count)
 			fmt.Println(memstring)
 
@@ -146,28 +153,28 @@ func main() {
 // ******************************************************************************
 
 func what_is_format(filename string) string { // returns "matrix", "fasta" or "other"
-//	fmt.Println("filename: ", filename)
+	//	fmt.Println("filename: ", filename)
 	fh, err := os.Open(filename)
 	if err != nil {
 		fmt.Println("Couldn't open ", filename)
 		os.Exit(1)
-	} 
+	}
 	scanner := bufio.NewScanner(fh)
-//	buf := make([]byte, 10000)
-	scanner.Buffer(make([]byte, 10000), 1000000) // the default here was 64*1024 - not big enough! Prob. need to 
-//	fmt.Printf("max token size of scanner: %d\n", scanner.maxTokenSize) 
-//	fmt.Printf("scanner.Scan() returned: %t \n", scanner.Scan())
-//	fmt.Println("[" + scanner.Text() +"]")
+	//	buf := make([]byte, 10000)
+	scanner.Buffer(make([]byte, 10000), 1000000) // the default here was 64*1024 - not big enough! Prob. need to
+	//	fmt.Printf("max token size of scanner: %d\n", scanner.maxTokenSize)
+	//	fmt.Printf("scanner.Scan() returned: %t \n", scanner.Scan())
+	//	fmt.Println("[" + scanner.Text() +"]")
 	for scanner.Scan() {
 		line := scanner.Text()
-	//	fmt.Println("Line: [" + line[0:50])
+		//	fmt.Println("Line: [" + line[0:50])
 		fields := strings.Fields(line)
-	//	fmt.Println("first line, first field: ", fields[0])
+		//	fmt.Println("first line, first field: ", fields[0])
 		if fields[0] == "MARKER" {
 			return "matrix"
-		}else if fields[0][0:1] == ">" {
+		} else if fields[0][0:1] == ">" {
 			return "fasta"
-		}else{
+		} else {
 			fmt.Println("Unknown file format. ", fields[0])
 			return "other"
 		}
