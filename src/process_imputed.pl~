@@ -1,0 +1,26 @@
+#!/usr/bin/perl -w
+use strict;
+
+my $delta = shift // 0.1;
+
+
+while (<>) {
+  if (/^MARKER/) {
+    print;
+  } else {
+    my @cols = split(" ", $_);
+    my $seq_id = shift @cols;
+    for (my ($i, $impval) = each @cols) {
+      if ($impval < $delta) {
+	$cols[$i] = 0.0;
+      } elsif ($impval > (2.0 - $delta)) {
+	$cols[$i] = 2.0;
+      } elsif ($impval > (1.0 - $delta)  and  $impval < (1.0 + $delta)) {
+	$cols[$i] = 1.0;
+      } else {
+	$cols[$i] = 'X';
+      }
+    }
+    print "$seq_id\t", join("\t", @cols), "\n";
+  }
+}
