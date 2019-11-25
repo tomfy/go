@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-//	"mytypes"
+	//	"mytypes"
 	"os"
-//	"runtime"
+	//	"runtime"
 	"runtime/pprof"
-	"strings"
 	"sort"
+	"strings"
 	"time"
 	//
-//	"seqchunkset"
+	//	"seqchunkset"
 	"sequenceset"
 )
 
@@ -34,11 +34,13 @@ func main() {
 	/* search control parameters */
 	var dist_fraction float64
 	var seed int64
+	var top int
 	flag.Int64Var(&seed, "seed", -1, "# rng seed (default: set from clock.)")
 	flag.Float64Var(&dist_fraction, "dfrac", 1, "# fraction of all N choose 2 distances to do.")
+	flag.IntVar(&top, "top", -1, "# output this many closest relatives to each.")
 
-max_missing_data_proportion := 0.1
-missing_data_prob := 0.0
+	max_missing_data_proportion := 0.1
+	missing_data_prob := 0.0
 
 	flag.Parse()
 
@@ -80,23 +82,32 @@ missing_data_prob := 0.0
 		// sequence_set.Add_missing_data(missing_data_prob)
 		idpair_dist := sequence_set.Fraction_of_all_distances(dist_fraction)
 
-		
-
-		for id1, id2_dist := range idpair_dist {
-			sorted_keys := keys_sorted_by_value(id2_dist)
-			fmt.Printf("%s  ", id1)
-			for i2, id2 := range sorted_keys {
-				d12 := id2_dist[id2]
-				fmt.Printf("%s %5.3f  ", id2, d12)
-				if i2 >= 19 {
-					break
+		if top > 0 {
+			for id1, id2_dist := range idpair_dist {
+				sorted_keys := keys_sorted_by_value(id2_dist)
+				fmt.Printf("%s  ", id1)
+				for i2, id2 := range sorted_keys {
+					d12 := id2_dist[id2]
+					fmt.Printf("%s %8.5f  ", id2, d12)
+					if i2 >= top-1 {
+						break
+					}
+				}
+				fmt.Println("")
+			}
+		} else {
+			for id1, id2_dist := range idpair_dist {
+			//	sorted_keys := keys_sorted_by_value(id2_dist)
+				for id2, d12 := range id2_dist { // sorted_keys {
+					// d12 := id2_dist[id2]
+					fmt.Printf("%s %s %8.5f\n", id1, id2, d12)
 				}
 			}
-			fmt.Println("")
 		}
 	}
+	tend := time.Now()
+	fmt.Printf("time to execute: %v \n", tend.Sub(tstart))
 }
-
 
 func what_is_format(filename string) string { // returns "matrix", "fasta" or "other"
 	//	fmt.Println("filename: ", filename)
@@ -130,13 +141,13 @@ func what_is_format(filename string) string { // returns "matrix", "fasta" or "o
 }
 
 // for a map w string keys, int values, return a slice containing the keys, but sorted with smallest value ones at beginning.
-func keys_sorted_by_value(amap map[string]float64) ([]string) {
+func keys_sorted_by_value(amap map[string]float64) []string {
 	keys := make([]string, 0, len(amap))
 	for k, _ := range amap {
 		keys = append(keys, k)
 		//	fmt.Fprintf(os.Stderr, "k v: %s  %d\n", k, v)
 	}
 	sort.Slice(keys, func(i, j int) bool { return amap[keys[i]] < amap[keys[j]] })
-//	fmt.Fprintf(os.Stderr, "max_mds %d  n_ok: %d \n", max_mds, n_ok)
+	//	fmt.Fprintf(os.Stderr, "max_mds %d  n_ok: %d \n", max_mds, n_ok)
 	return keys // the keys sorted by value (small to large), and the number of values <= max_mds
 }
