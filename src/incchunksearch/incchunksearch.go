@@ -32,7 +32,7 @@ func main() {
 	flag.StringVar(&files_string, "f", "", "comma separated names of input fasta files.")
 
 	/* search control parameters */
-	var chunk_size, n_chunks, n_keep, n_reps int
+	var chunk_size, n_chunks, n_keep, n_reps, save2 int
 	var seed int64
 	flag.IntVar(&chunk_size, "size", 4, "number of snps in each chunk")
 	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use")
@@ -42,6 +42,8 @@ func main() {
 	var missing_data_prob, max_missing_data_proportion float64
 	flag.Float64Var(&missing_data_prob, "miss", -1, "# fraction missing data in genotypes")
 	flag.Float64Var(&max_missing_data_proportion, "max_md", 0.1, "# max proportion of missing data to use snp in chunk set")
+	flag.IntVar(&save2, "save2", 0, "# if 1, save factor or 2 by only doing 1 direction.")
+	//	flag.Float64Var(&dist_fraction, "dfrac", -1, "# fraction of all N choose 2 distances to do.")
 
 	flag.Parse()
 
@@ -119,9 +121,14 @@ func main() {
 			}
 
 			t_before := time.Now()
-			seqchset := seqchunkset.Construct_empty(q_sequence_set, chunk_size, n_chunks) //
-			qid_matchcandidates, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := seqchset.Search(q_sequence_set, n_keep, true)
-				// seqchset.Search_and_construct(n_keep)
+			var seqchset *seqchunkset.Sequence_chunk_set
+			if save2 == 1 {
+			seqchset = seqchunkset.Construct_empty(q_sequence_set, chunk_size, n_chunks) //
+}else{
+			seqchset = seqchunkset.Construct_from_sequence_set(q_sequence_set, chunk_size, n_chunks) //
+}
+			qid_matchcandidates, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := seqchset.Search(q_sequence_set, n_keep, (save2 == 1))
+			// seqchset.Search_and_construct(n_keep)
 			if len(qid_badmatches) > 0 {
 				fmt.Println("# there are bad matches.", len(qid_badmatches))
 			}

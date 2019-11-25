@@ -33,6 +33,7 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 	seq_chunk_set.Sequence_set = sequence_set
 	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
 	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(sequence_set.Sequences)) // missing_data_chunk_counts
+	seq_chunk_set.N_chunked_sequences = 0
 	for i := 0; i < len(sequence_set.Sequences); i++ {
 		//	id := sequence_set.SeqIndex_id[index]
 		seq_chunk_set.Add_sequence()
@@ -57,6 +58,7 @@ func Construct_empty(sequence_set *sequenceset.Sequence_set, chunk_size int, n_c
 func (scs *Sequence_chunk_set) Add_sequence() { // id string, sequence string) {
 
 	new_index := scs.N_chunked_sequences // this is the number of sequences in the sequence_chunk_set so far
+	// fmt.Fprintln(os.Stderr, "new_index: ", new_index)
 	seq_set := scs.Sequence_set
 	sequence := seq_set.Sequences[new_index]
 	//	id := seq_set.SeqIndex_id[new_index]
@@ -150,7 +152,7 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, seque
 		TestEqual(i, index) // exit if not equal
 		// x.B is the number of matching chunks between query and subj
 		x.C -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
-		fmt.Fprintln(os.Stderr, x.C)
+	//	fmt.Fprintln(os.Stderr, "n ok chunks: ", x.C)
 		if x.C <= 0 {                                           // for now, 'BAD' criterion is that there are no chunks with OK data (no md) in both query and subj.
 		//	fmt.Fprintln(os.Stderr, "qseq_id: ", qseq_id, "  s index: ", index, " matchcount: ", x.B, " x.C: ", x.C)
 			chunkwise_match_info_BAD = append(chunkwise_match_info_BAD, x)
