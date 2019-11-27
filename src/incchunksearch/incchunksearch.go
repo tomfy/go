@@ -122,11 +122,11 @@ func main() {
 
 			t_before := time.Now()
 			var seqchset *seqchunkset.Sequence_chunk_set
-			if save2 == 1 {
-			seqchset = seqchunkset.Construct_empty(q_sequence_set, chunk_size, n_chunks) //
-}else{
-			seqchset = seqchunkset.Construct_from_sequence_set(q_sequence_set, chunk_size, n_chunks) //
-}
+			if save2 == 1 { 
+				seqchset = seqchunkset.Construct_empty(q_sequence_set, chunk_size, n_chunks) //
+			} else {
+				seqchset = seqchunkset.Construct_from_sequence_set(q_sequence_set, chunk_size, n_chunks) //
+			}
 			qid_matchcandidates, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := seqchset.Search(q_sequence_set, n_keep, (save2 == 1))
 			// seqchset.Search_and_construct(n_keep)
 			if len(qid_badmatches) > 0 {
