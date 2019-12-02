@@ -307,9 +307,10 @@ func (seq_set *Sequence_set) Fraction_of_all_distances(prob float64) map[string]
 	return idpair_dist
 } /* */
 
-func (q_seq_set *Sequence_set) Candidate_distances(s_seq_set *Sequence_set, qid_matchcandidates map[string][]*mytypes.MatchInfo, qid_matches map[string][]mytypes.IdCmfDistance) {
+func (q_seq_set *Sequence_set) Candidate_distances(s_seq_set *Sequence_set, qid_matchcandidates map[string][]*mytypes.MatchInfo, qid_matches map[string][]mytypes.IdCmfDistance) int {
 	// for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
 	// this is for the case of searching for matches between two distinct Sequence_sets (i.e. 'AB')
+	dist_calc_count := 0
 	for qindex, qseq := range q_seq_set.Sequences {
 		qid := q_seq_set.Seq_index_to_id(qindex)
 		matchcandidates := qid_matchcandidates[qid]
@@ -329,6 +330,7 @@ func (q_seq_set *Sequence_set) Candidate_distances(s_seq_set *Sequence_set, qid_
 			/*if(dist != distx){
 				os.Exit(1)
 			}*/
+			dist_calc_count++
 			matchinfo := mytypes.IdCmfDistance{sseq_id, matchinfo.ChunkMatchFraction, dist}
 			id_matchcount_distance_triples[i] = matchinfo
 			qid_matches[qid] = append(qid_matches[qid], matchinfo)
@@ -342,7 +344,7 @@ func (q_seq_set *Sequence_set) Candidate_distances(s_seq_set *Sequence_set, qid_
 		}
 		fmt.Printf("\n")
 	}
-
+	return dist_calc_count
 }
 
 // *************** not methods ***********************

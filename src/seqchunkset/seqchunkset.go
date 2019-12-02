@@ -147,7 +147,7 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, seque
 	chunk_match_total_count := 0 // matches, md in neither, summed over all chunks and all subj. sequences
 	chunk_mdmd_total_count := 0  //  'matches' md in both, summed over all chunks and all subj. sequences
 	// A: index, B: matching chunk count, C: OK chunk count (i.e. no md), D: B/C
-	chunkwise_match_info_OK := make([]*mytypes.MatchInfo, 0)  //
+	chunkwise_match_info_OK := make([]*mytypes.MatchInfo, 0)  // 
 	chunkwise_match_info_BAD := make([]*mytypes.MatchInfo, 0) // these have
 	for i, x := range chunkwise_match_info {                     // O(N^2)
 		index := x.Index        // index of subj. sequence
@@ -178,7 +178,7 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, seque
 
 // search for relatives of q_seq_set  in scs, and, optionally (if add == true) add seqs in q_seq_set to scs after search
 func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_keep int, add bool) (map[string][]*mytypes.MatchInfo, map[string][]*mytypes.MatchInfo, int, int) {
-	qid_smatchinfos := make(map[string][]*mytypes.MatchInfo) // keys strings (id2), values: slices
+	qid_smatchinfos := make(map[string][]*mytypes.MatchInfo) // keys query ids; values: slices of pointers to MatchInfo structs
 	qid_badmatches := make(map[string][]*mytypes.MatchInfo)
 	total_chunk_match_count := 0
 	total_mdmd_match_count := 0

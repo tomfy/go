@@ -43,16 +43,17 @@ func main() {
 	flag.Float64Var(&missing_data_prob, "miss", -1, "# fraction missing data in genotypes")
 	flag.Float64Var(&max_missing_data_proportion, "max_md", 0.1, "# max proportion of missing data to use snp in chunk set")
 	flag.IntVar(&save2, "save2", 0, "# if 1, save factor or 2 by only doing 1 direction.")
-	//	flag.Float64Var(&dist_fraction, "dfrac", -1, "# fraction of all N choose 2 distances to do.")
 
-	flag.Parse()
+	flag.Parse() // parse the command line
 
+	// Seed the rng
 	tstart := time.Now()
 	if seed < 0 {
 		seed = int64(tstart.Nanosecond())
 	}
 	rand.Seed(seed)
 
+	// profiling stuff
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
@@ -71,10 +72,10 @@ func main() {
 	if input_format == "other" {
 		os.Exit(1)
 	}
-	//	search_time := time.Now()
-	//	distance_time := search_time
+
 	search_time := int64(0)
 	distance_time := int64(0)
+	distance_calc_count := 0
 	for irep := 0; irep < n_reps; irep++ {
 		data_sets := make([]*seqchunkset.Sequence_chunk_set, 0, len(files))
 		cumulative_total_chunk_match_count := 0
@@ -116,13 +117,15 @@ func main() {
 				cumulative_total_mdmd_match_count += total_mdmd_match_count
 				//	fmt.Fprintln(os.Stdout, len(qid_matchcandidates), total_chunk_match_count, total_mdmd_match_count)
 				t_before = time.Now()
-				q_sequence_set.Candidate_distances(data_set.Sequence_set, qid_matchcandidates, qid_matches)
+				distance_calc_count +=
+					q_sequence_set.Candidate_distances(data_set.Sequence_set, qid_matchcandidates, qid_matches)
+					fmt.Fprintf(os.Stderr, "# number of distances calculated: %d\n", distance_calc_count)
 				distance_time += int64(time.Now().Sub(t_before))
 			}
 
 			t_before := time.Now()
 			var seqchset *seqchunkset.Sequence_chunk_set
-			if save2 == 1 { 
+			if save2 == 1 {
 				seqchset = seqchunkset.Construct_empty(q_sequence_set, chunk_size, n_chunks) //
 			} else {
 				seqchset = seqchunkset.Construct_from_sequence_set(q_sequence_set, chunk_size, n_chunks) //
@@ -141,7 +144,9 @@ func main() {
 
 			//	q_sequence_set.Candidate_distances_AA(qid_matchcandidates, qid_matches)
 			t_before = time.Now()
-			q_sequence_set.Candidate_distances(q_sequence_set, qid_matchcandidates, qid_matches)
+			distance_calc_count +=
+				q_sequence_set.Candidate_distances(q_sequence_set, qid_matchcandidates, qid_matches)
+			fmt.Fprintf(os.Stderr, "# number of distances calculated: %d\n", distance_calc_count)
 			distance_time += int64(time.Now().Sub(t_before))
 			memstring := MemUsageString()
 			fmt.Println("# ", memstring)
@@ -154,6 +159,7 @@ func main() {
 
 	tend := time.Now()
 	fmt.Printf("# total time for %d reps: %v\n", n_reps, tend.Sub(tstart))
+	fmt.Printf("# number of distances calculated: %d\n", distance_calc_count)
 	fmt.Printf("# search time: %10.3f  distance_time: %10.3f \n", 0.001*float64(search_time/1000000), 0.001*float64(distance_time/1000000))
 }
 
