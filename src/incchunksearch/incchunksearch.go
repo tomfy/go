@@ -79,7 +79,7 @@ func main() {
 		data_sets := make([]*seqchunkset.Sequence_chunk_set, 0, len(files))
 		cumulative_total_chunk_match_count := 0
 		cumulative_total_mdmd_match_count := 0
-		qid_matches := make(map[string][]mytypes.StringF64F64) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
+		qid_matches := make(map[string][]mytypes.IdCmfDistance) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
 		for _, file := range files {
 
 			var q_sequence_set *sequenceset.Sequence_set
@@ -116,7 +116,7 @@ func main() {
 				cumulative_total_mdmd_match_count += total_mdmd_match_count
 				//	fmt.Fprintln(os.Stdout, len(qid_matchcandidates), total_chunk_match_count, total_mdmd_match_count)
 				t_before = time.Now()
-				q_sequence_set.Candidate_distances_AB(data_set.Sequence_set, qid_matchcandidates, qid_matches)
+				q_sequence_set.Candidate_distances(data_set.Sequence_set, qid_matchcandidates, qid_matches)
 				distance_time += int64(time.Now().Sub(t_before))
 			}
 
@@ -141,7 +141,7 @@ func main() {
 
 			//	q_sequence_set.Candidate_distances_AA(qid_matchcandidates, qid_matches)
 			t_before = time.Now()
-			q_sequence_set.Candidate_distances_AB(q_sequence_set, qid_matchcandidates, qid_matches)
+			q_sequence_set.Candidate_distances(q_sequence_set, qid_matchcandidates, qid_matches)
 			distance_time += int64(time.Now().Sub(t_before))
 			memstring := MemUsageString()
 			fmt.Println("# ", memstring)

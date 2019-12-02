@@ -307,18 +307,18 @@ func (seq_set *Sequence_set) Fraction_of_all_distances(prob float64) map[string]
 	return idpair_dist
 } /* */
 
-func (q_seq_set *Sequence_set) Candidate_distances_AB(s_seq_set *Sequence_set, qid_matchcandidates map[string][]*mytypes.IntIntIntF64, qid_matches map[string][]mytypes.StringF64F64) {
+func (q_seq_set *Sequence_set) Candidate_distances(s_seq_set *Sequence_set, qid_matchcandidates map[string][]*mytypes.MatchInfo, qid_matches map[string][]mytypes.IdCmfDistance) {
 	// for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
 	// this is for the case of searching for matches between two distinct Sequence_sets (i.e. 'AB')
 	for qindex, qseq := range q_seq_set.Sequences {
 		qid := q_seq_set.Seq_index_to_id(qindex)
 		matchcandidates := qid_matchcandidates[qid]
 
-		id_matchcount_distance_triples := make([]mytypes.StringF64F64, len(matchcandidates))
+		id_matchcount_distance_triples := make([]mytypes.IdCmfDistance, len(matchcandidates))
 		fmt.Printf("%s   ", qid)
 		for i, matchinfo := range matchcandidates {
-			sseq_index := matchinfo.A
-			sseq_id := s_seq_set.Seq_index_to_id(sseq_index)
+			sseq_index := matchinfo.Index
+			sseq_id := matchinfo.Id  // s_seq_set.Seq_index_to_id(sseq_index)
 			sseq := s_seq_set.Sequences[sseq_index]
 			//	dist_old := distance_old(sseq, qseq)
 			n00_22, n11, nd1, nd2 := distance(sseq, qseq)
@@ -329,16 +329,16 @@ func (q_seq_set *Sequence_set) Candidate_distances_AB(s_seq_set *Sequence_set, q
 			/*if(dist != distx){
 				os.Exit(1)
 			}*/
-			matchinfo := mytypes.StringF64F64{sseq_id, matchinfo.D, dist}
+			matchinfo := mytypes.IdCmfDistance{sseq_id, matchinfo.ChunkMatchFraction, dist}
 			id_matchcount_distance_triples[i] = matchinfo
 			qid_matches[qid] = append(qid_matches[qid], matchinfo)
 		}
 
 		sort.Slice(id_matchcount_distance_triples,
-			func(i, j int) bool { return id_matchcount_distance_triples[i].C < id_matchcount_distance_triples[j].C })
+			func(i, j int) bool { return id_matchcount_distance_triples[i].Distance < id_matchcount_distance_triples[j].Distance })
 
 		for _, a_triple := range id_matchcount_distance_triples {
-			fmt.Printf("%s %6.5f %6.5f  ", a_triple.A, a_triple.B, a_triple.C)
+			fmt.Printf("%s %6.5f %6.5f  ", a_triple.Id, a_triple.ChunkMatchFraction, a_triple.Distance)
 		}
 		fmt.Printf("\n")
 	}
@@ -346,26 +346,6 @@ func (q_seq_set *Sequence_set) Candidate_distances_AB(s_seq_set *Sequence_set, q
 }
 
 // *************** not methods ***********************
-
-/* func count_missing_data_snps_in_seq(seq string) int {
-	count := 0
-	for j := 0; j < len(seq); j++ { // loop over snps
-		if seq[j] == mytypes.MDchar {
-			count++
-		}
-	}
-	return count
-} /*
-
-func count_seqs_w_missing_snp_data(seq string) int {
-	count := 0
-	for j := 0; j < len(seq); j++ { // loop over snps
-		if seq[j] == mytypes.MDchar {
-			count++
-		}
-	}
-	return count
-} /**/
 
 // for a map w string keys, int values, return a slice containing the keys, but sorted with smallest value ones at beginning.
 func keys_sorted_by_value(amap map[string]int, max_mds int) ([]string, int) {

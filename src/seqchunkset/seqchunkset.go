@@ -93,16 +93,18 @@ func (scs *Sequence_chunk_set) Add_sequence() { // id string, sequence string) {
 }
 
 // search for relative of query sequence  sequence  using the seqchunkset scs.
-func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, sequence string, n_top int) ([]*mytypes.IntIntIntF64, []*mytypes.IntIntIntF64, int, int) {
+func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, sequence string, n_top int) ([]*mytypes.MatchInfo, []*mytypes.MatchInfo, int, int) {
 	seq_length := len(sequence)
 	n_subj_seqs := scs.N_chunked_sequences
 	n_chunks := len(scs.Chunk_specs)
 	//	fmt.Fprintln(os.Stderr, "n_subj_seqs: ", n_subj_seqs, "  seq_length: ", seq_length)
 	chunk_mdmd_counts := make([]int, n_subj_seqs) // chunk_mdmd_counts[i] is number of chunks in (subj) sequence i which are missing there and also in query sequence (i.e. the one whose relatives we are searching for)
-	chunkwise_match_info := make([]*mytypes.IntIntIntF64, n_subj_seqs)
+	chunkwise_match_info := make([]*mytypes.MatchInfo, n_subj_seqs)
 	for i := 0; i < n_subj_seqs; i++ {
-		iiif := mytypes.IntIntIntF64{i, 0, n_chunks - scs.Missing_data_chunk_counts[i], -1}
-		chunkwise_match_info[i] = &iiif
+		sseq_id := scs.Sequence_set.SeqIndex_id[i]
+		// _ = sseq_id
+		matchinfo := mytypes.MatchInfo{i, sseq_id, 0, n_chunks - scs.Missing_data_chunk_counts[i], -1}
+		chunkwise_match_info[i] = &matchinfo
 	}
 	if seq_length != scs.Sequence_set.Sequence_length {
 		fmt.Printf("sequence lengths: %8d %8d not equal; exiting.\n", seq_length, scs.Sequence_set.Sequence_length)
@@ -136,7 +138,7 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, seque
 				} else {
 					for _, mindex := range matchindices {
 						//	fmt.Fprintln(os.Stderr, "Mindex:  ", mindex)
-						chunkwise_match_info[mindex].B++ // O(N^2 S_ch)
+						chunkwise_match_info[mindex].MatchCount++ // O(N^2 S_ch)
 					}
 				}
 			}
@@ -145,39 +147,39 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, seque
 	chunk_match_total_count := 0 // matches, md in neither, summed over all chunks and all subj. sequences
 	chunk_mdmd_total_count := 0  //  'matches' md in both, summed over all chunks and all subj. sequences
 	// A: index, B: matching chunk count, C: OK chunk count (i.e. no md), D: B/C
-	chunkwise_match_info_OK := make([]*mytypes.IntIntIntF64, 0)  //
-	chunkwise_match_info_BAD := make([]*mytypes.IntIntIntF64, 0) // these have
+	chunkwise_match_info_OK := make([]*mytypes.MatchInfo, 0)  //
+	chunkwise_match_info_BAD := make([]*mytypes.MatchInfo, 0) // these have
 	for i, x := range chunkwise_match_info {                     // O(N^2)
-		index := x.A        // index of subj. sequence
+		index := x.Index        // index of subj. sequence
 		TestEqual(i, index) // exit if not equal
 		// x.B is the number of matching chunks between query and subj
-		x.C -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
+		x.OkChunkCount -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
 	//	fmt.Fprintln(os.Stderr, "n ok chunks: ", x.C)
-		if x.C <= 0 {                                           // for now, 'BAD' criterion is that there are no chunks with OK data (no md) in both query and subj.
+		if x.OkChunkCount <= 0 {                                           // for now, 'BAD' criterion is that there are no chunks with OK data (no md) in both query and subj.
 		//	fmt.Fprintln(os.Stderr, "qseq_id: ", qseq_id, "  s index: ", index, " matchcount: ", x.B, " x.C: ", x.C)
 			chunkwise_match_info_BAD = append(chunkwise_match_info_BAD, x)
 			//	os.Exit(1)
 		} else {
-			x.D = float64(x.B) / float64(x.C) // will sort on this. (fraction of OK chunks which match)
+			x.ChunkMatchFraction = float64(x.MatchCount) / float64(x.OkChunkCount) // will sort on this. (fraction of OK chunks which match)
 			chunkwise_match_info_OK = append(chunkwise_match_info_OK, x)
 		}
-		chunk_match_total_count += x.B
+		chunk_match_total_count += x.MatchCount
 		chunk_mdmd_total_count += chunk_mdmd_counts[i]
 	}
 	//	fmt.Println(chunk_match_total_count, chunk_mdmd_total_count)
 	if n_top < len(chunkwise_match_info_OK) {
 		chunkwise_match_info_OK = quickselect(chunkwise_match_info_OK, n_top) // top n_top matches, i
 	}
-	sort.Slice(chunkwise_match_info_OK, func(i, j int) bool { return chunkwise_match_info_OK[i].D > chunkwise_match_info_OK[j].D })
+	sort.Slice(chunkwise_match_info_OK, func(i, j int) bool { return chunkwise_match_info_OK[i].ChunkMatchFraction > chunkwise_match_info_OK[j].ChunkMatchFraction })
 	/* for _, match_info := range chunkwise_match_info {
 	   } /* */
 	return chunkwise_match_info_OK, chunkwise_match_info_BAD, chunk_match_total_count, chunk_mdmd_total_count
 }
 
-// search for relatives of q_seq_set  in scs
-func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_keep int, add bool) (map[string][]*mytypes.IntIntIntF64, map[string][]*mytypes.IntIntIntF64, int, int) {
-	qid_smatchinfos := make(map[string][]*mytypes.IntIntIntF64) // keys strings (id2), values: slices
-	qid_badmatches := make(map[string][]*mytypes.IntIntIntF64)
+// search for relatives of q_seq_set  in scs, and, optionally (if add == true) add seqs in q_seq_set to scs after search
+func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_keep int, add bool) (map[string][]*mytypes.MatchInfo, map[string][]*mytypes.MatchInfo, int, int) {
+	qid_smatchinfos := make(map[string][]*mytypes.MatchInfo) // keys strings (id2), values: slices
+	qid_badmatches := make(map[string][]*mytypes.MatchInfo)
 	total_chunk_match_count := 0
 	total_mdmd_match_count := 0
 	for qindex, qseq := range q_seq_set.Sequences {
@@ -271,19 +273,19 @@ func get_chunk_seq(snpid_index map[string]int, seq string, csa []string, md_coun
 }
 
 // find the best k, i.e. the k with list[i].D the largest
-func quickselect(list []*mytypes.IntIntIntF64, k int) []*mytypes.IntIntIntF64 {
+func quickselect(list []*mytypes.MatchInfo, k int) []*mytypes.MatchInfo {
 	if k > 0 {
 		k--
-		keepers := make([]*mytypes.IntIntIntF64, 0, k)
+		keepers := make([]*mytypes.MatchInfo, 0, k)
 		for {
 			// partition
 			px := len(list) / 2                         // 'middle' index
-			pv := list[px].D                            // 'pivot' value
+			pv := list[px].ChunkMatchFraction                            // 'pivot' value
 			last := len(list) - 1                       // index of last element
 			list[px], list[last] = list[last], list[px] // swap 'middle' and last elements
 			i := 0
 			for j := 0; j < last; j++ { // for each index up to but not including the last ...
-				if list[j].D > pv { // if elem j is less than the pivot value ...
+				if list[j].ChunkMatchFraction > pv { // if elem j is less than the pivot value ...
 					list[i], list[j] = list[j], list[i] // swap elem j to ith position (i <= j)
 					i++
 				}
@@ -304,7 +306,7 @@ func quickselect(list []*mytypes.IntIntIntF64, k int) []*mytypes.IntIntIntF64 {
 			}
 		}
 	} else {
-		return make([]*mytypes.IntIntIntF64, 0, 0)
+		return make([]*mytypes.MatchInfo, 0, 0)
 	}
 }
 
