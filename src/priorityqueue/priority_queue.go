@@ -18,8 +18,7 @@ type PriorityQueue []*IdCmf
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	// We want Pop to give us the lowest based on expiration number as the priority
-	// The lower the expiry, the higher the priority
+	// We want Pop to give us the item with the lowest Cmf, so use '<' here.
 	return pq[i].Cmf < pq[j].Cmf
 }
 

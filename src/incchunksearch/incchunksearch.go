@@ -16,6 +16,8 @@ import (
 	//
 	"seqchunkset"
 	"sequenceset"
+	"priorityqueue"
+	"container/heap"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpy profile to file")
@@ -81,6 +83,9 @@ func main() {
 		cumulative_total_chunk_match_count := 0
 		cumulative_total_mdmd_match_count := 0
 		qid_matches := make(map[string][]mytypes.IdCmfDistance) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
+
+		qid_cmfpq := make(map[string]*priorityqueue.PriorityQueue) // one priority queue for each query
+		//	heap.Init(&priorityQueue)
 		for _, file := range files {
 
 			var q_sequence_set *sequenceset.Sequence_set
@@ -89,6 +94,8 @@ func main() {
 			} else if input_format == "matrix" {
 				q_sequence_set = sequenceset.Construct_from_matrix_file(file, max_missing_data_proportion)
 			}
+
+			Initialize_priorityqueues(q_sequence_set, &qid_cmfpq) //
 			// sequence_set.Add_missing_data(missing_data_prob)
 
 			if n_chunks < 0 {
@@ -107,7 +114,7 @@ func main() {
 			fmt.Printf("# n data sets: %d\n", len(data_sets))
 			for _, data_set := range data_sets {
 				t_before := time.Now()
-				qid_matchcandidates, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := data_set.Search(q_sequence_set, n_keep, false)
+				qid_matchcandidates, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := data_set.Search(q_sequence_set, n_keep, false, &qid_cmfpq)
 				if len(qid_badmatches) > 0 {
 					fmt.Println("#  there are bad matches.", len(qid_badmatches))
 				}
@@ -119,7 +126,7 @@ func main() {
 				t_before = time.Now()
 				distance_calc_count +=
 					q_sequence_set.Candidate_distances(data_set.Sequence_set, qid_matchcandidates, qid_matches)
-					fmt.Fprintf(os.Stderr, "# number of distances calculated: %d\n", distance_calc_count)
+				fmt.Fprintf(os.Stderr, "# number of distances calculated: %d\n", distance_calc_count)
 				distance_time += int64(time.Now().Sub(t_before))
 			}
 
@@ -130,7 +137,7 @@ func main() {
 			} else {
 				seqchset = seqchunkset.Construct_from_sequence_set(q_sequence_set, chunk_size, n_chunks) //
 			}
-			qid_matchcandidates, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := seqchset.Search(q_sequence_set, n_keep, (save2 == 1))
+			qid_matchcandidates, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := seqchset.Search(q_sequence_set, n_keep, (save2 == 1), &qid_cmfpq)
 			// seqchset.Search_and_construct(n_keep)
 			if len(qid_badmatches) > 0 {
 				fmt.Println("# there are bad matches.", len(qid_badmatches))
@@ -194,6 +201,15 @@ func what_is_format(filename string) string { // returns "matrix", "fasta" or "o
 		break
 	}
 	return "other"
+}
+
+func Initialize_priorityqueues(seq_set *sequenceset.Sequence_set, qid_cmfpq *map[string]*priorityqueue.PriorityQueue) {
+// make an empty priority queue for each sequence to hold the best candidate matches to that sequence
+	for qid, _ := range seq_set.SeqId_index {
+		pq := make(priorityqueue.PriorityQueue, 0)
+		heap.Init(&pq)
+		(*qid_cmfpq)[qid] = &pq
+	}
 }
 
 func MemUsageString() string {

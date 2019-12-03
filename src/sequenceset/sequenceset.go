@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"priorityqueue"
 )
 
 type Sequence_set struct {
@@ -346,6 +347,50 @@ func (q_seq_set *Sequence_set) Candidate_distances(s_seq_set *Sequence_set, qid_
 	}
 	return dist_calc_count
 }
+
+func (q_seq_set *Sequence_set) Candidate_distances_x(s_seq_set *Sequence_set, qid_cmfpq map[string]*priorityqueue.PriorityQueue, qid_matches map[string][]mytypes.IdCmfDistance) int {
+	// for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
+	// this is for the case of searching for matches between two distinct Sequence_sets (i.e. 'AB')
+	dist_calc_count := 0
+	for qindex, qseq := range q_seq_set.Sequences {
+		qid := q_seq_set.Seq_index_to_id(qindex)
+		matchcandidates := qid_cmfpq[qid]
+
+		id_matchcount_distance_triples := make([]mytypes.IdCmfDistance, len(matchcandidates))
+		fmt.Printf("%s   ", qid)
+		for i, matchinfo := range matchcandidates {
+			// sseq_index := matchinfo.Index
+			
+			sseq_id := matchinfo.Id  // s_seq_set.Seq_index_to_id(sseq_index)
+			sseq_index := s_seq_set.SeqId_index[sseq_id]
+			sseq := s_seq_set.Sequences[sseq_index]
+			//	dist_old := distance_old(sseq, qseq)
+			n00_22, n11, nd1, nd2 := distance(sseq, qseq)
+			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+			//	hgmr := float64(nd2) / float64(n00_22 + nd2)
+			//	agmr := float64(nd1+nd2) / float64(n00_22+n11+nd1+nd2)
+			//	fmt.Printf("%v  %v\n", dist_old, dist)
+			/*if(dist != distx){
+				os.Exit(1)
+			}*/
+			dist_calc_count++
+			matchinfo := mytypes.IdCmfDistance{sseq_id, matchinfo.ChunkMatchFraction, dist}
+			id_matchcount_distance_triples[i] = matchinfo
+			qid_matches[qid] = append(qid_matches[qid], matchinfo)
+		}
+
+		sort.Slice(id_matchcount_distance_triples,
+			func(i, j int) bool { return id_matchcount_distance_triples[i].Distance < id_matchcount_distance_triples[j].Distance })
+
+		for _, a_triple := range id_matchcount_distance_triples {
+			fmt.Printf("%s %6.5f %6.5f  ", a_triple.Id, a_triple.ChunkMatchFraction, a_triple.Distance)
+		}
+		fmt.Printf("\n")
+	}
+	return dist_calc_count
+}
+
+
 
 // *************** not methods ***********************
 

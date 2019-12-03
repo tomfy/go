@@ -1,10 +1,12 @@
 package seqchunkset
 
 import (
+	"container/heap"
 	"fmt"
 	"math/rand"
 	"mytypes"
 	"os"
+	"priorityqueue"
 	"sequenceset"
 	"sort"
 	//	"testing"
@@ -93,7 +95,7 @@ func (scs *Sequence_chunk_set) Add_sequence() { // id string, sequence string) {
 }
 
 // search for relative of query sequence  sequence  using the seqchunkset scs.
-func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, sequence string, n_top int) ([]*mytypes.MatchInfo, []*mytypes.MatchInfo, int, int) {
+func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, sequence string, n_top int, qid_cmfpq *map[string]*priorityqueue.PriorityQueue) ([]*mytypes.MatchInfo, []*mytypes.MatchInfo, int, int) {
 	seq_length := len(sequence)
 	n_subj_seqs := scs.N_chunked_sequences
 	n_chunks := len(scs.Chunk_specs)
@@ -147,16 +149,17 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, seque
 	chunk_match_total_count := 0 // matches, md in neither, summed over all chunks and all subj. sequences
 	chunk_mdmd_total_count := 0  //  'matches' md in both, summed over all chunks and all subj. sequences
 	// A: index, B: matching chunk count, C: OK chunk count (i.e. no md), D: B/C
-	chunkwise_match_info_OK := make([]*mytypes.MatchInfo, 0)  // 
+	chunkwise_match_info_OK := make([]*mytypes.MatchInfo, 0)  //
 	chunkwise_match_info_BAD := make([]*mytypes.MatchInfo, 0) // these have
-	for i, x := range chunkwise_match_info {                     // O(N^2)
-		index := x.Index        // index of subj. sequence
-		TestEqual(i, index) // exit if not equal
+	for i, x := range chunkwise_match_info {                  // O(N^2)
+		index := x.Index                             // index of subj. sequence
+		TestEqual(i, index)                          // exit if not equal
+		x.Id = scs.Sequence_set.SeqIndex_id[x.Index] // set the id in the MatchInfo struct.
 		// x.B is the number of matching chunks between query and subj
 		x.OkChunkCount -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
-	//	fmt.Fprintln(os.Stderr, "n ok chunks: ", x.C)
-		if x.OkChunkCount <= 0 {                                           // for now, 'BAD' criterion is that there are no chunks with OK data (no md) in both query and subj.
-		//	fmt.Fprintln(os.Stderr, "qseq_id: ", qseq_id, "  s index: ", index, " matchcount: ", x.B, " x.C: ", x.C)
+		//	fmt.Fprintln(os.Stderr, "n ok chunks: ", x.C)
+		if x.OkChunkCount <= 0 { // for now, 'BAD' criterion is that there are no chunks with OK data (no md) in both query and subj.
+			//	fmt.Fprintln(os.Stderr, "qseq_id: ", qseq_id, "  s index: ", index, " matchcount: ", x.B, " x.C: ", x.C)
 			chunkwise_match_info_BAD = append(chunkwise_match_info_BAD, x)
 			//	os.Exit(1)
 		} else {
@@ -165,19 +168,28 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, seque
 		}
 		chunk_match_total_count += x.MatchCount
 		chunk_mdmd_total_count += chunk_mdmd_counts[i]
+
+		id1 := qseq_id
+		id2 := x.Id
+		idcmf := priorityqueue.IdCmf{Id: id2, Cmf: x.ChunkMatchFraction}
+		pq_capped_push( (*qid_cmfpq)[id1], idcmf, 20)
+		idcmf = priorityqueue.IdCmf{Id: id1, Cmf: x.ChunkMatchFraction}
+		pq_capped_push( (*qid_cmfpq)[id2], idcmf, 20)
 	}
 	//	fmt.Println(chunk_match_total_count, chunk_mdmd_total_count)
 	if n_top < len(chunkwise_match_info_OK) {
 		chunkwise_match_info_OK = quickselect(chunkwise_match_info_OK, n_top) // top n_top matches, i
 	}
-	sort.Slice(chunkwise_match_info_OK, func(i, j int) bool { return chunkwise_match_info_OK[i].ChunkMatchFraction > chunkwise_match_info_OK[j].ChunkMatchFraction })
+	sort.Slice(chunkwise_match_info_OK, func(i, j int) bool {
+		return chunkwise_match_info_OK[i].ChunkMatchFraction > chunkwise_match_info_OK[j].ChunkMatchFraction
+	})
 	/* for _, match_info := range chunkwise_match_info {
 	   } /* */
 	return chunkwise_match_info_OK, chunkwise_match_info_BAD, chunk_match_total_count, chunk_mdmd_total_count
 }
 
 // search for relatives of q_seq_set  in scs, and, optionally (if add == true) add seqs in q_seq_set to scs after search
-func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_keep int, add bool) (map[string][]*mytypes.MatchInfo, map[string][]*mytypes.MatchInfo, int, int) {
+func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_keep int, add bool, qid_cmfpq *map[string]*priorityqueue.PriorityQueue) (map[string][]*mytypes.MatchInfo, map[string][]*mytypes.MatchInfo, int, int) {
 	qid_smatchinfos := make(map[string][]*mytypes.MatchInfo) // keys query ids; values: slices of pointers to MatchInfo structs
 	qid_badmatches := make(map[string][]*mytypes.MatchInfo)
 	total_chunk_match_count := 0
@@ -185,7 +197,7 @@ func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_kee
 	for qindex, qseq := range q_seq_set.Sequences {
 		qid := q_seq_set.Seq_index_to_id(qindex)
 		if true { // search against the previously read-in sequences
-			top_smatchinfos, bad_matches, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qid, qseq, n_keep)
+			top_smatchinfos, bad_matches, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qid, qseq, n_keep, qid_cmfpq)
 			total_chunk_match_count += tcmc
 			total_mdmd_match_count += tmdmdc
 			if qindex%1000 == 0 {
@@ -206,6 +218,20 @@ func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_kee
 // ***************************************************************************************************
 
 // ******************* functions which are not exported **********************************************
+
+func pq_capped_push(pq *priorityqueue.PriorityQueue, x priorityqueue.IdCmf, cap int) { // cap = 'capacity', max size.
+	//	pq := qid_cmfpq[id]
+
+	if len(*pq) < cap { // not at capacity, just add it
+		heap.Push(pq, &x)
+	} else { // at capacity; compare to worst
+		worst_cmf := pq.Peek().Cmf
+		if x.Cmf > worst_cmf { // must bump one
+			_ = heap.Pop(pq).(*priorityqueue.IdCmf) // discard worst one and
+			heap.Push(pq, &x)                        // add the new one.
+		}
+	}
+}
 
 // get a set of n_chunks each of size chunk_size
 func get_chunk_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int) []chunk_spec {
@@ -280,7 +306,7 @@ func quickselect(list []*mytypes.MatchInfo, k int) []*mytypes.MatchInfo {
 		for {
 			// partition
 			px := len(list) / 2                         // 'middle' index
-			pv := list[px].ChunkMatchFraction                            // 'pivot' value
+			pv := list[px].ChunkMatchFraction           // 'pivot' value
 			last := len(list) - 1                       // index of last element
 			list[px], list[last] = list[last], list[px] // swap 'middle' and last elements
 			i := 0
@@ -316,7 +342,6 @@ func TestEqual(a int, b int) {
 		os.Exit(1)
 	}
 }
-
 
 // incrementally search and construct the seqchset, i.e. search each seq. against existing seqchset, then
 // add it to the seqchset.
