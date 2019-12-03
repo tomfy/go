@@ -8,7 +8,7 @@ import (
 	"os"
 	"priorityqueue"
 	"sequenceset"
-	"sort"
+//	"sort"
 	//	"testing"
 )
 
@@ -95,7 +95,7 @@ func (scs *Sequence_chunk_set) Add_sequence() { // id string, sequence string) {
 }
 
 // search for relative of query sequence  sequence  using the seqchunkset scs.
-func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, sequence string, n_top int, qid_cmfpq *map[string]*priorityqueue.PriorityQueue) ([]*mytypes.MatchInfo, []*mytypes.MatchInfo, int, int) {
+func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, sequence string, n_top int) ([]*mytypes.MatchInfo, []*mytypes.MatchInfo, int, int) {
 	seq_length := len(sequence)
 	n_subj_seqs := scs.N_chunked_sequences
 	n_chunks := len(scs.Chunk_specs)
@@ -150,7 +150,7 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, seque
 	chunk_mdmd_total_count := 0  //  'matches' md in both, summed over all chunks and all subj. sequences
 	// A: index, B: matching chunk count, C: OK chunk count (i.e. no md), D: B/C
 	chunkwise_match_info_OK := make([]*mytypes.MatchInfo, 0)  //
-	chunkwise_match_info_BAD := make([]*mytypes.MatchInfo, 0) // these have
+	chunkwise_match_info_BAD := make([]*mytypes.MatchInfo, 0) // these have zero OK chunks (i.e. all chunks have md in at least one of the two sequences)
 	for i, x := range chunkwise_match_info {                  // O(N^2)
 		index := x.Index                             // index of subj. sequence
 		TestEqual(i, index)                          // exit if not equal
@@ -168,28 +168,29 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts(qseq_id string, seque
 		}
 		chunk_match_total_count += x.MatchCount
 		chunk_mdmd_total_count += chunk_mdmd_counts[i]
-
-		id1 := qseq_id
+/*
+// store best ones in priority queue (but do in Search, not here)
+		id1 := qseq_id 
 		id2 := x.Id
 		idcmf := priorityqueue.IdCmf{Id: id2, Cmf: x.ChunkMatchFraction}
 		pq_capped_push( (*qid_cmfpq)[id1], idcmf, 20)
 		idcmf = priorityqueue.IdCmf{Id: id1, Cmf: x.ChunkMatchFraction}
-		pq_capped_push( (*qid_cmfpq)[id2], idcmf, 20)
+		pq_capped_push( (*qid_cmfpq)[id2], idcmf, 20) /* */
 	}
 	//	fmt.Println(chunk_match_total_count, chunk_mdmd_total_count)
-	if n_top < len(chunkwise_match_info_OK) {
+	/* if n_top < len(chunkwise_match_info_OK) {
 		chunkwise_match_info_OK = quickselect(chunkwise_match_info_OK, n_top) // top n_top matches, i
 	}
 	sort.Slice(chunkwise_match_info_OK, func(i, j int) bool {
 		return chunkwise_match_info_OK[i].ChunkMatchFraction > chunkwise_match_info_OK[j].ChunkMatchFraction
-	})
+	}) */
 	/* for _, match_info := range chunkwise_match_info {
 	   } /* */
-	return chunkwise_match_info_OK, chunkwise_match_info_BAD, chunk_match_total_count, chunk_mdmd_total_count
+	return  chunkwise_match_info_OK, chunkwise_match_info_BAD, chunk_match_total_count, chunk_mdmd_total_count
 }
 
 // search for relatives of q_seq_set  in scs, and, optionally (if add == true) add seqs in q_seq_set to scs after search
-func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_keep int, add bool, qid_cmfpq *map[string]*priorityqueue.PriorityQueue) (map[string][]*mytypes.MatchInfo, map[string][]*mytypes.MatchInfo, int, int) {
+func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_keep int, add bool, qid_cmfpq *map[string]*priorityqueue.PriorityQueue) (map[string][]*mytypes.MatchInfo, int, int) {
 	qid_smatchinfos := make(map[string][]*mytypes.MatchInfo) // keys query ids; values: slices of pointers to MatchInfo structs
 	qid_badmatches := make(map[string][]*mytypes.MatchInfo)
 	total_chunk_match_count := 0
@@ -197,7 +198,16 @@ func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_kee
 	for qindex, qseq := range q_seq_set.Sequences {
 		qid := q_seq_set.Seq_index_to_id(qindex)
 		if true { // search against the previously read-in sequences
-			top_smatchinfos, bad_matches, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qid, qseq, n_keep, qid_cmfpq)
+			top_smatchinfos, bad_matches, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts(qid, qseq, 5000*n_keep) //, qid_cmfpq)
+			for _, mtchinfo := range top_smatchinfos{
+				id1 := qid 
+				id2 := mtchinfo.Id
+				idcmf := priorityqueue.IdCmf{Id: id2, Cmf: mtchinfo.ChunkMatchFraction}
+				pq_capped_push( (*qid_cmfpq)[id1], idcmf, n_keep)
+				idcmf = priorityqueue.IdCmf{Id: id1, Cmf: mtchinfo.ChunkMatchFraction}
+				pq_capped_push( (*qid_cmfpq)[id2], idcmf, n_keep)	
+			}
+			
 			total_chunk_match_count += tcmc
 			total_mdmd_match_count += tmdmdc
 			if qindex%1000 == 0 {
@@ -209,10 +219,11 @@ func (scs *Sequence_chunk_set) Search(q_seq_set *sequenceset.Sequence_set, n_kee
 			}
 		}
 		if add {
+		//	fmt.Fprintln(os.Stderr, "adding a sequence to scs")
 			scs.Add_sequence() // add latest sequence
 		}
 	}
-	return qid_smatchinfos, qid_badmatches, total_chunk_match_count, total_mdmd_match_count
+	return /* qid_smatchinfos, */ qid_badmatches, total_chunk_match_count, total_mdmd_match_count
 }
 
 // ***************************************************************************************************
