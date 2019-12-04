@@ -292,7 +292,7 @@ func (seq_set *Sequence_set) Fraction_of_all_distances(prob float64) map[string]
 				id2 := seq_set.Seq_index_to_id(i2)
 				seq2 := seq_set.Sequences[i2]
 				//	dist_old := distance_old(sseq, qseq)
-				n00_22, n11, nd1, nd2 := distance(seq1, seq2)
+				n00_22, n11, nd1, nd2 := Distance(seq1, seq2)
 				dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
 				//	fmt.Printf("%v  %v\n", dist_old, dist)
 				id2_dist, ok := idpair_dist[id1]
@@ -316,7 +316,7 @@ func (seq_set *Sequence_set) Fraction_of_all_distances(prob float64) map[string]
 	return idpair_dist
 } /* */
 
-/* func (q_seq_set *Sequence_set) Candidate_distances_old(s_seq_set *Sequence_set, qid_matchcandidates map[string][]*mytypes.MatchInfo, qid_matches map[string][]mytypes.IdCmfDistance) int {
+func (q_seq_set *Sequence_set) Candidate_distances_qs(s_seq_set *Sequence_set, qid_matchcandidates map[string][]*mytypes.MatchInfo, qid_matches map[string][]mytypes.IdCmfDistance) int {
 	// for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
 	// this is for the case of searching for matches between two distinct Sequence_sets (i.e. 'AB')
 	dist_calc_count := 0
@@ -331,7 +331,7 @@ func (seq_set *Sequence_set) Fraction_of_all_distances(prob float64) map[string]
 			sseq_id := matchinfo.Id // s_seq_set.Seq_index_to_id(sseq_index)
 			sseq := s_seq_set.Sequences[sseq_index]
 			//	dist_old := distance_old(sseq, qseq)
-			n00_22, n11, nd1, nd2 := distance(sseq, qseq)
+			n00_22, n11, nd1, nd2 := Distance(sseq, qseq)
 			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
 			//	hgmr := float64(nd2) / float64(n00_22 + nd2)
 			//	agmr := float64(nd1+nd2) / float64(n00_22+n11+nd1+nd2)
@@ -351,9 +351,9 @@ func (seq_set *Sequence_set) Fraction_of_all_distances(prob float64) map[string]
 
 	}
 	return dist_calc_count
-} */
+} /* */
 
-func (q_seq_set *Sequence_set) Candidate_distances(s_seq_set *Sequence_set, qid_cmfpq map[string]*priorityqueue.PriorityQueue) /*, qid_matches map[string][]mytypes.IdCmfDistance)*/ int {
+func (q_seq_set *Sequence_set) Candidate_distances_pq(s_seq_set *Sequence_set, qid_cmfpq map[string]*priorityqueue.PriorityQueue) /*, qid_matches map[string][]mytypes.IdCmfDistance)*/ int {
 	// for the candidate matches in qid_matchcandidates, get the full distances, sort, and output.
 	// this is for the case of searching for matches between two distinct Sequence_sets (i.e. 'AB')
 	dist_calc_count := 0
@@ -373,7 +373,7 @@ func (q_seq_set *Sequence_set) Candidate_distances(s_seq_set *Sequence_set, qid_
 			}
 			sseq := s_seq_set.Sequences[sseq_index]
 			//	dist_old := distance_old(sseq, qseq)
-			n00_22, n11, nd1, nd2 := distance(sseq, qseq)
+			n00_22, n11, nd1, nd2 := Distance(sseq, qseq)
 			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
 			//	hgmr := float64(nd2) / float64(n00_22 + nd2)
 			//	agmr := float64(nd1+nd2) / float64(n00_22+n11+nd1+nd2)
@@ -418,7 +418,7 @@ func keys_sorted_by_value(amap map[string]int, max_mds int) ([]string, int) {
 	return keys, n_ok // the keys sorted by value (small to large), and the number of values <= max_mds
 }
 
-func distance(seq1 string, seq2 string) (int, int, int, int) {
+func Distance(seq1 string, seq2 string) (int, int, int, int) {
 	//	zero_count := 0
 	one_count := 0
 	two_count := 0
