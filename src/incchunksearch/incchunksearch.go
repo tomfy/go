@@ -10,8 +10,8 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
-	"strings"
 	"sort"
+	"strings"
 	"time"
 	//
 	"container/heap"
@@ -36,7 +36,7 @@ func main() {
 	/* search control parameters */
 	var chunk_size, n_chunks, n_keep, n_reps, mode int
 	var seed int64
-	flag.IntVar(&mode, "mode", 1, "mode (1 best matches to file1; ")
+	flag.IntVar(&mode, "mode", 2, "mode (1 best matches to file1; ")
 	flag.IntVar(&chunk_size, "size", 4, "number of snps in each chunk")
 	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use")
 	flag.IntVar(&n_keep, "keep", 20, "# of best matches to keep")
@@ -236,7 +236,7 @@ func main() {
 			t_before := time.Now()
 			//	for _, data_set := range data_sets {
 			//		distance_calc_count +=
-			calculate_candidate_distances(id_seqset, qid_cmfpq) //, qid_matches)
+			distance_calc_count += calculate_candidate_distances(id_seqset, qid_cmfpq) //, qid_matches)
 			//	}
 			distance_time = int64(time.Now().Sub(t_before)) /* */
 		} // end mode 2
@@ -253,7 +253,9 @@ func main() {
 // ******************************************************************************
 
 // /*
-func calculate_candidate_distances(id_seqset map[string]*sequenceset.Sequence_set, qid_cmfpq map[string]*priorityqueue.PriorityQueue) {
+func calculate_candidate_distances(id_seqset map[string]*sequenceset.Sequence_set, qid_cmfpq map[string]*priorityqueue.PriorityQueue) int {
+	dist_calc_count := 0
+	idpair_dist := make(map[string]float64)
 	for id1, cmfpq := range qid_cmfpq {
 		seqset1 := id_seqset[id1]
 		seq1 := seqset1.Sequences[seqset1.SeqId_index[id1]]
@@ -264,8 +266,20 @@ func calculate_candidate_distances(id_seqset map[string]*sequenceset.Sequence_se
 			cmf := cmf.Cmf
 			seqset2 := id_seqset[id2]
 			seq2 := seqset2.Sequences[seqset2.SeqId_index[id2]]
-			n00_22, n11, nd1, nd2 := sequenceset.Distance(seq1, seq2)
-			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+	
+			var idpair string		
+			if id1 < id2 { // put ids together with the 'smaller' one on left:
+				idpair = id1 + "\t" + id2
+			} else {
+				idpair = id2 + "\t" + id1
+			}
+			dist, ok := idpair_dist[idpair] /* */
+			if !ok { // don't already have the distance for this pair - calculate it from the seq1, seq2.
+				n00_22, n11, nd1, nd2 := sequenceset.Distance(seq1, seq2)
+				dist = float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+				idpair_dist[idpair] = dist
+				dist_calc_count++
+			}
 			icd := mytypes.IdCmfDistance{id2, cmf, dist}
 			top_matches[i] = icd
 		}
@@ -277,6 +291,7 @@ func calculate_candidate_distances(id_seqset map[string]*sequenceset.Sequence_se
 		}
 		fmt.Println()
 	}
+	return dist_calc_count
 } /* */
 
 func what_is_format(filename string) string { // returns "matrix", "fasta" or "other"
