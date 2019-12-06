@@ -36,7 +36,7 @@ func main() {
 	/* search control parameters */
 	var chunk_size, n_chunks, n_keep, n_reps, mode int
 	var seed int64
-	flag.IntVar(&mode, "mode", 2, "mode (1 best matches to file1; ")
+	flag.IntVar(&mode, "mode", 1, "mode (1 best matches to file1; ")
 	flag.IntVar(&chunk_size, "size", 4, "number of snps in each chunk")
 	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use")
 	flag.IntVar(&n_keep, "keep", 20, "# of best matches to keep")
@@ -66,11 +66,20 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 	//
+	var input_format string
+	var qfiles, sfiles, files []string
+	q_and_sfiles := strings.Split(files_string, ";") // split on ;
+	if len(q_and_sfiles) > 1 {                      // 'mode 1'
+		mode = 1
+		qfiles = strings.Split(q_and_sfiles[0], ",") // split on ,
+		sfiles = strings.Split(q_and_sfiles[1], ",") // split on ,
+		input_format = what_is_format(sfiles[0])
+	} else { // mode 2
+		mode = 2
+		files = strings.Split(files_string, ",") // fasta files, or matrix files!
+			input_format = what_is_format(files[0])
+	}
 
-	files := strings.Split(files_string, ",") // fasta files, or matrix files!
-
-	test_file := files[0] // filename of first file, now check to see whether is fasta or matrix
-	input_format := what_is_format(test_file)
 	fmt.Println("# input format: ", input_format)
 	if input_format == "other" {
 		os.Exit(1)
@@ -84,82 +93,78 @@ func main() {
 		// can either do 1st file vs all others (just get best matches to sequences in first file) (mode 1)
 		// or do all v all, getting best matches to every sequence (mode 2)
 		if mode == 1 {
-			/*
-				data_sets := make([]*seqchunkset.Sequence_chunk_set, 0, len(files))
-				id_seqset := make(map[string]*sequenceset.Sequence_set)
-				cumulative_total_chunk_match_count := 0
-				cumulative_total_mdmd_match_count := 0
-				qid_matches := make(map[string][]mytypes.IdCmfDistance) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
+			//	/*
+			q_scsets := make([]*seqchunkset.Sequence_chunk_set, 0, len(qfiles))
+			s_scsets := make([]*seqchunkset.Sequence_chunk_set, 0, len(sfiles))
+			
+			id_seqset := make(map[string]*sequenceset.Sequence_set)
 
-				qid_cmfpq := make(map[string]*priorityqueue.PriorityQueue) // one priority queue for each query
-				//	heap.Init(&priorityQueue)
-				for _, file := range files {
+			for _, qfile := range qfiles{
+				var q_seqset *sequenceset.Sequence_set
+				if input_format == "fasta" {
+					q_seqset = sequenceset.Construct_from_fasta_file(qfile, max_missing_data_proportion, missing_data_prob, &id_seqset)
+				} else if input_format == "matrix" {
+					q_seqset = sequenceset.Construct_from_matrix_file(qfile, max_missing_data_proportion, &id_seqset)
+				}
+				q_scsets = append(q_scsets, seqchunkset.Construct_from_sequence_set(q_seqset, chunk_size, n_chunks)) //
+			}
+			
+			for _, sfile := range sfiles{
+				var s_seqset *sequenceset.Sequence_set
+				if input_format == "fasta" {
+					s_seqset = sequenceset.Construct_from_fasta_file(sfile, max_missing_data_proportion, missing_data_prob, &id_seqset)
+				} else if input_format == "matrix" {
+					s_seqset = sequenceset.Construct_from_matrix_file(sfile, max_missing_data_proportion, &id_seqset)
+				}
+				s_scsets = append(s_scsets, seqchunkset.Construct_from_sequence_set(s_seqset, chunk_size, n_chunks)) //
+			}
 
-					var q_sequence_set *sequenceset.Sequence_set
-					if input_format == "fasta" {
-						q_sequence_set = sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob, &id_seqset)
-					} else if input_format == "matrix" {
-						q_sequence_set = sequenceset.Construct_from_matrix_file(file, max_missing_data_proportion, &id_seqset)
-					}
+			
+			cumulative_total_chunk_match_count := 0
+			cumulative_total_mdmd_match_count := 0
+			qid_matches := make(map[string][]mytypes.IdCmfDistance) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
 
-					//	Initialize_priorityqueues(q_sequence_set, &qid_cmfpq) // create an empty pq for each sequence in q_sequence_set, and add to qid_cmfpq
+		//	qid_cmfpq := make(map[string]*priorityqueue.PriorityQueue) // one priority queue for each query
+			//	heap.Init(&priorityQueue)
+			for _, q_scs := range q_scsets {
 
-					if n_chunks < 0 {
-						n_chunks = int(q_sequence_set.Sequence_length / chunk_size)
-					}
-					fmt.Fprintf(os.Stderr, "# file: %s   ", file)
-					fmt.Fprintf(os.Stderr, "# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", chunk_size, n_chunks, n_keep, seed)
-					fmt.Printf("# file: %s    ", file)
-					fmt.Printf("# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", chunk_size, n_chunks, n_keep, seed)
+				q_sequence_set := q_scs.Sequence_set 
+				if n_chunks < 0 {
+					n_chunks = int(q_sequence_set.Sequence_length / chunk_size)
+				}
+				fmt.Fprintf(os.Stderr, "# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", chunk_size, n_chunks, n_keep, seed)
+				fmt.Printf("# chunk_size: %d   n_chunks: %d   n_keep: %d   seed: %d\n", chunk_size, n_chunks, n_keep, seed)
 
-					// for each sequence in set:
-					// search for candidate related sequences among those that have been stored previously;
-					// then store latest sequence
+				// for each sequence in set:
+				// search for candidate related sequences among those that have been stored previously;
+				// then store latest sequence
 
-					//
-					fmt.Printf("# n data sets: %d\n", len(data_sets))
-					for _, data_set := range data_sets {
-						t_before := time.Now()
-						qid_okmatches, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := data_set.Search_qs(q_sequence_set, n_keep, false, &qid_cmfpq)
-						distance_calc_count += q_sequence_set.Candidate_distances_qs(data_set.Sequence_set, qid_okmatches, qid_matches)
-						if len(qid_badmatches) > 0 {
-							fmt.Println("#  there are this many bad matches: ", len(qid_badmatches))
-						}
-						search_time += int64(time.Now().Sub(t_before))
-						cumulative_total_chunk_match_count += total_chunk_match_count
-						cumulative_total_mdmd_match_count += total_mdmd_match_count
-					}
-
+				//
+				fmt.Printf("# n data sets: %d\n", len(s_scsets))
+				for _, s_scs := range s_scsets {
 					t_before := time.Now()
-					seqchset := seqchunkset.Construct_empty(q_sequence_set, chunk_size, n_chunks) //
-					//	fmt.Fprintln(os.Stderr, "save2: ", save2, (save2 == 1) )
-					qid_okmatches, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := seqchset.Search_qs(q_sequence_set, n_keep, true, &qid_cmfpq)
+					qid_okmatches, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := s_scs.Search_qs(q_sequence_set, n_keep, false) //, &qid_cmfpq)
+					distance_calc_count += q_sequence_set.Candidate_distances_qs(s_scs.Sequence_set, qid_okmatches, qid_matches)
 					if len(qid_badmatches) > 0 {
-						fmt.Println("# there are bad matches.", len(qid_badmatches))
+						fmt.Println("#  there are this many bad matches: ", len(qid_badmatches))
 					}
 					search_time += int64(time.Now().Sub(t_before))
-
-					distance_calc_count += q_sequence_set.Candidate_distances_qs(q_sequence_set, qid_okmatches, qid_matches)
-
-					data_sets = append(data_sets, seqchset)
-
-					fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
-					fmt.Fprintf(os.Stderr, "# chunk match counts; neither md: %d, both md: %d\n",
-						total_chunk_match_count, total_mdmd_match_count)
-					fmt.Fprintln(os.Stderr, "# ", MemUsageString())
-
-					memstring := MemUsageString()
-					fmt.Println("# ", memstring)
-					fmt.Printf("# chunk match counts; neither md: %d, both md: %d\n", total_chunk_match_count, total_mdmd_match_count)
-					fmt.Println(memstring)
-
-				} // end loop over input files (data sets)
-				t_before := time.Now()
-				for _, data_set := range data_sets {
-					distance_calc_count += data_set.Sequence_set.Candidate_distances_qs(data_set.Sequence_set, &id_seqset, qid_matches)
+					cumulative_total_chunk_match_count += total_chunk_match_count
+					cumulative_total_mdmd_match_count += total_mdmd_match_count
 				}
-				distance_time = int64(time.Now().Sub(t_before))
-				/* */
+
+				fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
+				fmt.Fprintf(os.Stderr, "# chunk match counts; neither md: %d, both md: %d\n",
+					cumulative_total_chunk_match_count, cumulative_total_mdmd_match_count)
+				fmt.Fprintln(os.Stderr, "# ", MemUsageString())
+
+				memstring := MemUsageString()
+				fmt.Println("# ", memstring)
+				fmt.Printf("# chunk match counts; neither md: %d, both md: %d\n",
+					cumulative_total_chunk_match_count, cumulative_total_mdmd_match_count)
+				fmt.Println(memstring)
+
+			} // end loop over input files (data sets)
 		} else { //
 			// /*
 			data_sets := make([]*seqchunkset.Sequence_chunk_set, 0, len(files))
@@ -266,15 +271,15 @@ func calculate_candidate_distances(id_seqset map[string]*sequenceset.Sequence_se
 			cmf := cmf.Cmf
 			seqset2 := id_seqset[id2]
 			seq2 := seqset2.Sequences[seqset2.SeqId_index[id2]]
-	
-			var idpair string		
+
+			var idpair string
 			if id1 < id2 { // put ids together with the 'smaller' one on left:
 				idpair = id1 + "\t" + id2
 			} else {
 				idpair = id2 + "\t" + id1
 			}
 			dist, ok := idpair_dist[idpair] /* */
-			if !ok { // don't already have the distance for this pair - calculate it from the seq1, seq2.
+			if !ok {                        // don't already have the distance for this pair - calculate it from the seq1, seq2.
 				n00_22, n11, nd1, nd2 := sequenceset.Distance(seq1, seq2)
 				dist = float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
 				idpair_dist[idpair] = dist
