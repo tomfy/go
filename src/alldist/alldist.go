@@ -60,51 +60,99 @@ func main() {
 	}
 	//
 
-	files := strings.Split(files_string, ",") // fasta files, or matrix files!
+	//	files := strings.Split(files_string, ",") // fasta files, or matrix files!
 
-	test_file := files[0] // filename of first file, now check to see whether is fasta or matrix
-	input_format := what_is_format(test_file)
+	/*	test_file := files[0] // filename of first file, now check to see whether is fasta or matrix
+		input_format := what_is_format(test_file)
+		fmt.Println("# input format: ", input_format)
+		if input_format == "other" {
+			os.Exit(1)
+		} /* */
+
+	var input_format string
+	var qfiles, sfiles, files []string
+	var qfile, sfile, file string
+	var mode int
+	var idpair_dist map[string]map[string]float64
+	q_and_sfiles := strings.Split(files_string, ";") // split on ;
+	if len(q_and_sfiles) > 1 {                       // 'mode 1'
+		mode = 1
+		qfiles = strings.Split(q_and_sfiles[0], ",") // split on ,
+		sfiles = strings.Split(q_and_sfiles[1], ",") // split on ,
+		input_format = what_is_format(sfiles[0])
+		qfile = qfiles[0]
+		sfile = sfiles[0]
+		_ = qfile
+		_ = sfile
+	} else { // mode 2
+		mode = 2
+		files = strings.Split(files_string, ",") // fasta files, or matrix files!
+		file = files[0]
+		input_format = what_is_format(file)
+		if len(files) > 1 {
+			fmt.Fprintf(os.Stderr, "More than 1 file specified; will just use first one.\n")
+
+		}
+
+	}
+
+	fmt.Fprintln(os.Stderr, "# mode: ", mode)
 	fmt.Println("# input format: ", input_format)
 	if input_format == "other" {
 		os.Exit(1)
 	}
+
 	//	search_time := time.Now()
 	//	distance_time := search_time
 
-	for _, file := range files {
+	//	for _, file := range files {
 
-		var sequence_set *sequenceset.Sequence_set
+	var sequence_set1, sequence_set2 *sequenceset.Sequence_set
+	if mode == 1 { // 1 query file and 1 subj. file
+		id_seqset := make(map[string]*sequenceset.Sequence_set)
 		if input_format == "fasta" {
-			sequence_set = sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob)
+			sequence_set1 = sequenceset.Construct_from_fasta_file(qfile, max_missing_data_proportion, missing_data_prob, &id_seqset)
+			sequence_set2 = sequenceset.Construct_from_fasta_file(sfile, max_missing_data_proportion, missing_data_prob, &id_seqset)
 		} else if input_format == "matrix" {
-			sequence_set = sequenceset.Construct_from_matrix_file(file, max_missing_data_proportion)
+			sequence_set1 = sequenceset.Construct_from_matrix_file(qfile, max_missing_data_proportion, &id_seqset)
+			sequence_set2 = sequenceset.Construct_from_matrix_file(sfile, max_missing_data_proportion, &id_seqset)
+		}
+		fmt.Fprintln(os.Stderr, len(sequence_set1.Sequences), len(sequence_set2.Sequences))
+		idpair_dist = sequence_set1.Fraction_of_all_distances_AB(sequence_set2, dist_fraction)
+	} else {
+		id_seqset := make(map[string]*sequenceset.Sequence_set)
+		if input_format == "fasta" {
+			sequence_set1 = sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob, &id_seqset)
+		} else if input_format == "matrix" {
+			sequence_set1 = sequenceset.Construct_from_matrix_file(file, max_missing_data_proportion, &id_seqset)
 		}
 		// sequence_set.Add_missing_data(missing_data_prob)
-		idpair_dist := sequence_set.Fraction_of_all_distances(dist_fraction)
-
-		if top > 0 {
-			for id1, id2_dist := range idpair_dist {
-				sorted_keys := keys_sorted_by_value(id2_dist)
-				fmt.Printf("%s  ", id1)
-				for i2, id2 := range sorted_keys {
-					d12 := id2_dist[id2]
-					fmt.Printf("%s %8.5f  ", id2, d12)
-					if i2 >= top-1 {
-						break
-					}
+		idpair_dist = sequence_set1.Fraction_of_all_distances_AA(dist_fraction)
+	}
+	if top > 0 {
+		fmt.Fprintln(os.Stderr, "n id1s: ", len(idpair_dist))
+		for id1, id2_dist := range idpair_dist {
+			sorted_keys := keys_sorted_by_value(id2_dist)
+			fmt.Printf("%s  ", id1)
+			for i2, id2 := range sorted_keys {
+				d12 := id2_dist[id2]
+				fmt.Printf("%s %8.5f  ", id2, d12)
+				if i2 >= top-1 {
+					break
 				}
-				fmt.Println("")
 			}
-		} else {
-			for id1, id2_dist := range idpair_dist {
+			fmt.Println("")
+		}
+	} else {
+		for id1, id2_dist := range idpair_dist {
 			//	sorted_keys := keys_sorted_by_value(id2_dist)
-				for id2, d12 := range id2_dist { // sorted_keys {
-					// d12 := id2_dist[id2]
-					fmt.Printf("%s %s %8.5f\n", id1, id2, d12)
-				}
+			for id2, d12 := range id2_dist { // sorted_keys {
+				// d12 := id2_dist[id2]
+				fmt.Printf("%s %s %8.5f\n", id1, id2, d12)
 			}
 		}
 	}
+	// }
 	tend := time.Now()
 	fmt.Printf("time to execute: %v \n", tend.Sub(tstart))
 }
