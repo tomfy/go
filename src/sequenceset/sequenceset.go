@@ -129,6 +129,92 @@ func Construct_from_matrix_file(filename string, max_md_prop float64, id_seqset 
 	return &seq_set
 }
 
+func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md_prop float64, 
+	id_seqset *map[string]*Sequence_set) []*Sequence_set {
+	
+	fh, err := os.Open(filename)
+	if err != nil {
+		os.Exit(1)
+	}
+	var seq_set Sequence_set
+	var sequences []string
+
+	id_index := make(map[string]int)
+	index_id := make(map[int]string)
+	marker_id_index := make(map[string]int)
+	marker_index_id := make(map[int]string)
+
+	// read sequences from file into sequences slice
+	// and set up maps from ids to indices and vice versa
+	min_seq_len := 1000000000
+	max_seq_len := -1
+
+	seq_index := 0
+	scanner := bufio.NewScanner(fh)
+	scanner.Buffer(make([]byte, 10000), 1000000) // th
+	line_number := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line) // split on one or more whitespace chars.
+		//	fmt.Fprintln(os.Stderr, "line number: ", line_number)
+		if line_number == 0 { // this line should have MARKER and then marker ids (tab separated)
+			if fields[0] != "MARKER" {
+				os.Exit(1)
+			}
+			marker_ids := fields[1:] // everything after "MARKER"
+			for index, id := range marker_ids {
+				marker_id_index[id] = index
+				marker_index_id[index] = id
+			}
+
+		} else {
+			seq_id := fields[0]
+			index_id[seq_index] = seq_id
+			id_index[seq_id] = seq_index
+			genotypes_sequence := strings.Join(fields[1:], "")
+			//	fmt.Fprintln(os.Stderr, "g sequence: ", genotypes_sequence)
+			sequences = append(sequences, genotypes_sequence)
+			if len(genotypes_sequence) < min_seq_len {
+				min_seq_len = len(genotypes_sequence)
+			}
+			if len(genotypes_sequence) > max_seq_len {
+				max_seq_len = len(genotypes_sequence)
+			}
+			seq_index++
+		} /* */
+		line_number++
+	} // end of reading line lines of file
+	if min_seq_len != max_seq_len { // all sequence lengths must be the same, otherwise exit.
+		fmt.Printf("min, max sequence lengths: %8d %8d lengths not equal; exiting.\n", min_seq_len, max_seq_len)
+		os.Exit(1)
+	}
+	seq_length := min_seq_len
+	seq_set.Sequence_length = seq_length
+	seq_set.Sequences = sequences
+	seq_set.SeqIndex_id = index_id
+	seq_set.SeqId_index = id_index
+
+	for id, _ := range id_index {
+		(*id_seqset)[id] = &seq_set
+	}
+
+	seq_set.SnpIndex_id = marker_index_id // make(map[int]string)
+	seq_set.SnpId_index = marker_id_index // make(map[string]int)
+	//	fmt.Fprintln(os.Stderr, "before missing_data_counts")
+	seq_set.missing_data_counts()
+	//	fmt.Fprintln(os.Stderr, "after missing_data_counts")
+	max_md_count := int(max_md_prop * float64(seq_length))
+	seq_set.Max_md_count = max_md_count
+
+	//   sort by amount of missing data
+	seq_set.Sorted_snp_ids, seq_set.N_ok_snps = keys_sorted_by_value(seq_set.SnpId_mdcount, seq_set.Max_md_count)
+	/*	for i, snp_id := range seq_set.Sorted_snp_ids {
+			fmt.Println(i, snp_id, seq_set.SnpId_mdcount[snp_id])
+	} /* */
+
+	return &seq_set
+}
+
 func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rate float64, id_seqset *map[string]*Sequence_set) *Sequence_set {
 	fh, err := os.Open(filename)
 	if err != nil {
