@@ -281,7 +281,7 @@ func (set *Sequence_set) add_snp_ids() { // for now, just make an id by prependi
 } /* */
 
 // /*
-func (seq_set *Sequence_set) Fraction_of_all_distances(prob float64) map[string]map[string]float64 {
+func (seq_set *Sequence_set) Fraction_of_all_distances_AA(prob float64) map[string]map[string]float64 {
 
 	idpair_dist := make(map[string]map[string]float64)
 	for i1, seq1 := range seq_set.Sequences {
@@ -308,6 +308,43 @@ func (seq_set *Sequence_set) Fraction_of_all_distances(prob float64) map[string]
 				}
 				id1_dist[id1] = dist
 				idpair_dist[id2] = id1_dist
+
+			}
+
+		}
+	}
+	return idpair_dist
+} /* */
+
+func (seq_set *Sequence_set) Fraction_of_all_distances_AB(seq_set2 *Sequence_set, prob float64) map[string]map[string]float64 {
+
+	idpair_dist := make(map[string]map[string]float64)
+	for i1, seq1 := range seq_set.Sequences {
+		id1 := seq_set.Seq_index_to_id(i1)
+
+		for i2, seq2 := range seq_set2.Sequences {
+			if prob >= 1 || rand.Float64() < prob {
+				id2 := seq_set2.Seq_index_to_id(i2)
+				//	seq2 := seq_set2.Sequences[i2]
+				//	dist_old := distance_old(sseq, qseq)
+				n00_22, n11, nd1, nd2 := Distance(seq1, seq2)
+				dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+				//	fmt.Printf("%v  %v\n", dist_old, dist)
+				id2_dist, ok := idpair_dist[id1]
+				if !ok {
+					id2_dist = make(map[string]float64)
+					id2_dist[id2] = dist
+					idpair_dist[id1] = id2_dist
+				} else {
+					id2_dist[id2] = dist
+				}
+
+			/*	id1_dist, ok := idpair_dist[id2]
+				if !ok {
+					id1_dist = make(map[string]float64)
+				}
+				id1_dist[id1] = dist
+				idpair_dist[id2] = id1_dist /* */
 
 			}
 
@@ -347,8 +384,11 @@ func (q_seq_set *Sequence_set) Candidate_distances_qs(s_seq_set *Sequence_set, q
 			func(i, j int) bool {
 				return id_matchcount_distance_triples[i].Distance < id_matchcount_distance_triples[j].Distance
 			})
-// output the best matches to stdout:1
-
+		// output the best matches to stdout:1
+		for _, a_triple := range id_matchcount_distance_triples {
+			fmt.Printf("%s %6.5f %6.5f  ", a_triple.Id, a_triple.ChunkMatchFraction, a_triple.Distance)
+		}
+		fmt.Printf("\n")
 	}
 	return dist_calc_count
 } /* */

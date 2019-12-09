@@ -69,7 +69,7 @@ func main() {
 	var input_format string
 	var qfiles, sfiles, files []string
 	q_and_sfiles := strings.Split(files_string, ";") // split on ;
-	if len(q_and_sfiles) > 1 {                      // 'mode 1'
+	if len(q_and_sfiles) > 1 {                       // 'mode 1'
 		mode = 1
 		qfiles = strings.Split(q_and_sfiles[0], ",") // split on ,
 		sfiles = strings.Split(q_and_sfiles[1], ",") // split on ,
@@ -77,9 +77,9 @@ func main() {
 	} else { // mode 2
 		mode = 2
 		files = strings.Split(files_string, ",") // fasta files, or matrix files!
-			input_format = what_is_format(files[0])
+		input_format = what_is_format(files[0])
 	}
-
+	fmt.Fprintln(os.Stderr, "# mode: ", mode)
 	fmt.Println("# input format: ", input_format)
 	if input_format == "other" {
 		os.Exit(1)
@@ -96,10 +96,10 @@ func main() {
 			//	/*
 			q_scsets := make([]*seqchunkset.Sequence_chunk_set, 0, len(qfiles))
 			s_scsets := make([]*seqchunkset.Sequence_chunk_set, 0, len(sfiles))
-			
+			fmt.Fprintln(os.Stderr, "# n q files: ", len(qfiles), " n s files: ", len(sfiles))
 			id_seqset := make(map[string]*sequenceset.Sequence_set)
 
-			for _, qfile := range qfiles{
+			for _, qfile := range qfiles {
 				var q_seqset *sequenceset.Sequence_set
 				if input_format == "fasta" {
 					q_seqset = sequenceset.Construct_from_fasta_file(qfile, max_missing_data_proportion, missing_data_prob, &id_seqset)
@@ -108,8 +108,8 @@ func main() {
 				}
 				q_scsets = append(q_scsets, seqchunkset.Construct_from_sequence_set(q_seqset, chunk_size, n_chunks)) //
 			}
-			
-			for _, sfile := range sfiles{
+
+			for _, sfile := range sfiles {
 				var s_seqset *sequenceset.Sequence_set
 				if input_format == "fasta" {
 					s_seqset = sequenceset.Construct_from_fasta_file(sfile, max_missing_data_proportion, missing_data_prob, &id_seqset)
@@ -119,16 +119,15 @@ func main() {
 				s_scsets = append(s_scsets, seqchunkset.Construct_from_sequence_set(s_seqset, chunk_size, n_chunks)) //
 			}
 
-			
 			cumulative_total_chunk_match_count := 0
 			cumulative_total_mdmd_match_count := 0
 			qid_matches := make(map[string][]mytypes.IdCmfDistance) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
 
-		//	qid_cmfpq := make(map[string]*priorityqueue.PriorityQueue) // one priority queue for each query
+			//	qid_cmfpq := make(map[string]*priorityqueue.PriorityQueue) // one priority queue for each query
 			//	heap.Init(&priorityQueue)
 			for _, q_scs := range q_scsets {
 
-				q_sequence_set := q_scs.Sequence_set 
+				q_sequence_set := q_scs.Sequence_set
 				if n_chunks < 0 {
 					n_chunks = int(q_sequence_set.Sequence_length / chunk_size)
 				}
@@ -144,6 +143,7 @@ func main() {
 				for _, s_scs := range s_scsets {
 					t_before := time.Now()
 					qid_okmatches, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := s_scs.Search_qs(q_sequence_set, n_keep, false) //, &qid_cmfpq)
+					fmt.Fprintln(os.Stderr, "len(qid_okmatches): ", len(qid_okmatches))
 					distance_calc_count += q_sequence_set.Candidate_distances_qs(s_scs.Sequence_set, qid_okmatches, qid_matches)
 					if len(qid_badmatches) > 0 {
 						fmt.Println("#  there are this many bad matches: ", len(qid_badmatches))
@@ -165,7 +165,7 @@ func main() {
 				fmt.Println(memstring)
 
 			} // end loop over input files (data sets)
-		} else { //
+		} else { // MODE 2
 			// /*
 			data_sets := make([]*seqchunkset.Sequence_chunk_set, 0, len(files))
 			id_seqset := make(map[string]*sequenceset.Sequence_set)
