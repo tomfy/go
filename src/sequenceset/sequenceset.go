@@ -47,14 +47,16 @@ type Sequence_set struct {
 	return &seq_set
 } /* */
 
-func Construct_from_matrix_file(filename string, max_md_prop float64, id_seqset *map[string]*Sequence_set, waitgroup sync.WaitGroup) *Sequence_set {
+func Construct_from_matrix_file(filename string, max_md_prop float64, id_seqset *map[string]*Sequence_set,
+	seq_set *Sequence_set, waitgroup *sync.WaitGroup) {
+
 	defer waitgroup.Done()
 	
 	fh, err := os.Open(filename)
 	if err != nil {
 		os.Exit(1)
 	}
-	var seq_set Sequence_set
+//	var seq_set Sequence_set
 	var sequences []string
 
 	id_index := make(map[string]int)
@@ -113,7 +115,7 @@ func Construct_from_matrix_file(filename string, max_md_prop float64, id_seqset 
 	seq_set.SeqId_index = id_index
 
 	for id, _ := range id_index {
-		(*id_seqset)[id] = &seq_set
+		(*id_seqset)[id] = seq_set
 	}
 
 	seq_set.SnpIndex_id = marker_index_id // make(map[int]string)
@@ -130,11 +132,11 @@ func Construct_from_matrix_file(filename string, max_md_prop float64, id_seqset 
 			fmt.Println(i, snp_id, seq_set.SnpId_mdcount[snp_id])
 	} /* */
 
-	return &seq_set
+//	return &seq_set
 }
 
 func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md_prop float64,
-	id_seqset *map[string]*Sequence_set) *[]*Sequence_set {
+	id_seqset *map[string]*Sequence_set, seq_sets []*Sequence_set) {
 
 	fh, err := os.Open(filename)
 	if err != nil {
@@ -198,7 +200,7 @@ func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md
 
 	n_seqs_in_each_set := n_sequences/n_sets_to_make + 1
 
-	seq_sets := make([]*Sequence_set, n_sets_to_make)
+//	seq_sets := make([]*Sequence_set, n_sets_to_make)
 	n_seqs_used_so_far := 0
 	for i := 0; i < n_sets_to_make; i++ {
 		a_seq_set := Sequence_set{}
@@ -239,29 +241,11 @@ func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md
 		//   sort by amount of missing data
 		a_seq_set.Sorted_snp_ids, a_seq_set.N_ok_snps = keys_sorted_by_value(a_seq_set.SnpId_mdcount, a_seq_set.Max_md_count)
 
-		seq_sets = append(seq_sets, &a_seq_set)
+		fmt.Fprintln(os.Stderr, "xxN_ok_snps: ", a_seq_set.N_ok_snps)
+		seq_sets[i] = &a_seq_set
 	}
-	/*
-		seq_set.Sequence_length = seq_length
-		seq_set.Sequences = sequences
-		seq_set.SeqIndex_id = index_id
-		seq_set.SeqId_index = id_index
 
-		seq_set.SnpIndex_id = marker_index_id // make(map[int]string)
-		seq_set.SnpId_index = marker_id_index // make(map[string]int)
-		//	fmt.Fprintln(os.Stderr, "before missing_data_counts")
-		seq_set.missing_data_counts()
-		//	fmt.Fprintln(os.Stderr, "after missing_data_counts")
-		max_md_count := int(max_md_prop * float64(seq_length))
-		seq_set.Max_md_count = max_md_count
-
-		//   sort by amount of missing data
-		seq_set.Sorted_snp_ids, seq_set.N_ok_snps = keys_sorted_by_value(seq_set.SnpId_mdcount, seq_set.Max_md_count)
-		/*	for i, snp_id := range seq_set.Sorted_snp_ids {
-				fmt.Println(i, snp_id, seq_set.SnpId_mdcount[snp_id])
-		} /* */
-
-	return &seq_sets
+//	return seq_sets
 }
 
 func Construct_from_fasta_file(filename string, max_md_prop float64, rand_md_rate float64, id_seqset *map[string]*Sequence_set) *Sequence_set {
