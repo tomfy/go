@@ -19,7 +19,7 @@ import (
 	"seqchunkset"
 	"sequenceset"
 	"sync"
-	"reflect"
+//	"reflect"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpy profile to file")
@@ -36,9 +36,9 @@ func main() {
 	flag.StringVar(&files_string, "f", "", "comma separated names of input fasta files.")
 
 	/* search control parameters */
-	var chunk_size, n_chunks, n_keep, n_reps, mode int
+	var chunk_size, n_chunks, n_keep, n_reps, n_cpus int
 	var seed int64
-	flag.IntVar(&mode, "mode", 1, "mode (1 best matches to file1; ")
+	flag.IntVar(&n_cpus, "cpus", 1, "n cpus (number of cpus to use)")
 	flag.IntVar(&chunk_size, "size", 4, "number of snps in each chunk")
 	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use")
 	flag.IntVar(&n_keep, "keep", 20, "# of best matches to keep")
@@ -76,7 +76,7 @@ func main() {
 	distance_calc_count := 0
 	t_start := time.Now()
 
-	n_cpus := 2
+//	n_cpus := 2
 
 	var wg1 sync.WaitGroup
 	for irep := 0; irep < n_reps; irep++ {
@@ -112,14 +112,18 @@ func main() {
 
 			s_seqchunksets := make([]*seqchunkset.Sequence_chunk_set, n_cpus)
 			for i, sss := range s_seq_sets {
-				fmt.Fprintln(os.Stderr, "i: ", i)
-				fmt.Fprintln(os.Stderr, "n_ok_snps: ", sss.N_ok_snps)
-				s_scs := seqchunkset.Construct_from_sequence_set(sss, chunk_size, n_chunks)
-				s_seqchunksets[i] = s_scs
+			//	fmt.Fprintln(os.Stderr, "i: ", i)
+			//	fmt.Fprintln(os.Stderr, "n_ok_snps: ", sss.N_ok_snps)
+				// s_scs := 
+				wg1.Add(1)
+					seqchunkset.Construct_from_sequence_set_x(sss, chunk_size, n_chunks, &(s_seqchunksets[i]), &wg1)
+			//	fmt.Fprintln(os.Stderr, "i:  ", i, s_seqchunksets[i])
+				// s_seqchunksets[i] = s_scs
 			}
+			wg1.Wait()
 			cumulative_total_chunk_match_count := 0
 			cumulative_total_mdmd_match_count := 0
-			qid_matches := make(map[string][]mytypes.IdCmfDistance) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
+		//	qid_matches := make(map[string][]mytypes.IdCmfDistance) // keys: query ids, values: slices of {subj_id, chunkmatchfraction , dist}
 
 			if n_chunks < 0 {
 				n_chunks = int(q_seq_sets[0].Sequence_length / chunk_size)
@@ -138,10 +142,10 @@ func main() {
 						s_seqchunksets[k].Search_qs(qss, n_keep, false) //, &qid_cmfpq)
 					// qid_okmatches is of type: map[string][]*mytypes.MatchInfo
 					for qid, okmatches := range qid_okmatches {
-						fmt.Fprintln(os.Stderr, "type of: ", reflect.TypeOf(okmatches))
+					//	fmt.Fprintln(os.Stderr, "type of: ", reflect.TypeOf(okmatches))
 						x, ok := qid_allokmatches[qid]
 						if ok {
-							qid_allokmatches[qid] = append(x, okmatches)
+							qid_allokmatches[qid] = append(x, okmatches ...)
 						}else{
 							qid_allokmatches[qid] = okmatches
 						}
@@ -164,20 +168,28 @@ func main() {
 				}) /* */
 
 				qss := id_seqset[qid]
-				q_seq := qss.Sequences[qss.SeqId_index[q_id]]
+				q_seq := qss.Sequences[qss.SeqId_index[qid]]
 				top_matches := make([]mytypes.IdCmfDistance, n_keep)
-				fmt.Printf("%s ", id1)
+				fmt.Printf("%s ", qid)
 				for j:=0; j<n_keep; j++ {
 					matchinfo := okmatches[j]
-					cmf := matchinfo.Cmf
+					cmf := matchinfo.ChunkMatchFraction
 					s_id := matchinfo.Id
 					sss := id_seqset[s_id]
 					s_seq := sss.Sequences[sss.SeqId_index[s_id]]
 					n00_22, n11, nd1, nd2 := sequenceset.Distance(q_seq, s_seq)
-					dist = float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
-					top_matches[j] = IdCmfDistance{s_id, cmf, dist}
+					dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+					top_matches[j] = mytypes.IdCmfDistance{s_id, cmf, dist}
 				}
-
+sort.Slice(top_matches,
+			func(i, j int) bool {
+				return top_matches[i].Distance < top_matches[j].Distance
+			})
+		// output the best matches to stdout:1
+		for _, idcmfdist := range top_matches {
+			fmt.Printf("%s %6.5f %6.5f  ", idcmfdist.Id, idcmfdist.ChunkMatchFraction, idcmfdist.Distance)
+		}
+		fmt.Printf("\n")
 			//	t_before_dists := time.Now()
 			//	distance_calc_count += qss.Candidate_distances_qs(s_seqchunksets[k].Sequence_set, qid_okmatches, qid_matches)
 			}

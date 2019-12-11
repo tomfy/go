@@ -9,6 +9,7 @@ import (
 	"priorityqueue"
 	"sequenceset"
 	"sort"
+	"sync"
 	//	"testing"
 )
 
@@ -32,6 +33,7 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 
 	var seq_chunk_set Sequence_chunk_set
 	seq_chunk_set.Chunk_specs = get_chunk_set(sequence_set, chunk_size, n_chunks)
+	seq_chunk_set.Chunk_size = chunk_size
 	seq_chunk_set.Sequence_set = sequence_set
 	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
 	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(sequence_set.Sequences)) // missing_data_chunk_counts
@@ -43,6 +45,25 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 	}
 	//	}
 	return &seq_chunk_set
+}
+
+func Construct_from_sequence_set_x(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int, pp_seq_chunk_set **Sequence_chunk_set, wg *sync.WaitGroup) {
+	defer wg.Done()
+//	var seq_chunk_set Sequence_chunk_set
+	seq_chunk_set := &Sequence_chunk_set{}
+	seq_chunk_set.Chunk_specs = get_chunk_set(sequence_set, chunk_size, n_chunks)
+	seq_chunk_set.Sequence_set = sequence_set
+	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
+	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(sequence_set.Sequences)) // missing_data_chunk_counts
+	seq_chunk_set.N_chunked_sequences = 0
+	for i := 0; i < len(sequence_set.Sequences); i++ {
+		//	id := sequence_set.SeqIndex_id[index]
+		seq_chunk_set.Add_sequence()
+
+	}
+*pp_seq_chunk_set = seq_chunk_set
+	//	}
+//	return &seq_chunk_set
 }
 
 // /*
