@@ -107,21 +107,18 @@ func main() {
 			sequenceset.Construct_sets_from_matrix_file(sfile, n_cpus, max_missing_data_proportion, &id_seqset, s_seq_sets)
 			fmt.Fprintln(os.Stderr, "Subj. len(s_seq_sets): ", len(s_seq_sets))
 
-			s_seqchunksets := make([]*seqchunkset.Sequence_chunk_set, n_cpus)
-			for i, sss := range s_seq_sets {
-				wg1.Add(1)
-				go seqchunkset.Construct_from_sequence_set_x(sss, chunk_size, n_chunks, &(s_seqchunksets[i]), &wg1)
-			}
-			wg1.Wait()
-			setup_time += int64(time.Now().Sub(t_start))
-			
-			cumulative_total_chunk_match_count := 0
-			cumulative_total_mdmd_match_count := 0
-		
+			s_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(s_seq_sets, chunk_size, n_chunks)
+
 			fmt.Fprintf(os.Stderr, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
 				chunk_size, n_chunks, n_keep, n_cpus, seed)
 			fmt.Fprintf(os.Stdout, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
 				chunk_size, n_chunks, n_keep, n_cpus, seed)
+
+			setup_time += int64(time.Now().Sub(t_start))
+			// end of setup
+
+			cumulative_total_chunk_match_count := 0
+			cumulative_total_mdmd_match_count := 0
 
 			// do the chunkwise search for candidates
 			t_before := time.Now()
@@ -147,7 +144,7 @@ func main() {
 			// get full distances for top n_keep candidate matches to each query
 			t_before_dists := time.Now()
 			for qid, okmatches := range qid_allokmatches { // for each query there are n_cpus*n_keep candidates
-				sort.Slice(okmatches, func(i, j int) bool { // sort them 
+				sort.Slice(okmatches, func(i, j int) bool { // sort them
 					return okmatches[i].ChunkMatchFraction > okmatches[j].ChunkMatchFraction
 				}) /* */
 
@@ -244,7 +241,7 @@ func main() {
 				}
 				search_time += int64(time.Now().Sub(t_before))
 
-				//					distance_calc_count += q_sequence_set.Candidate_distances_pq(q_sequence_set, qid_okmatches, qid_matches)
+				//	distance_calc_count += q_sequence_set.Candidate_distances_pq(q_sequence_set, qid_okmatches, qid_matches)
 
 				data_sets = append(data_sets, seqchset)
 
@@ -537,7 +534,7 @@ func search(qss *sequenceset.Sequence_set, scs *seqchunkset.Sequence_chunk_set, 
 	_ = total_chunk_match_count
 	_ = total_mdmd_match_count
 	ch <- qid_okmatches
-	fmt.Fprintln(os.Stderr, "len(qid_okmatches): ", len(qid_okmatches))
+	//	fmt.Fprintln(os.Stderr, "len(qid_okmatches): ", len(qid_okmatches))
 	if len(qid_badmatches) > 0 {
 		fmt.Println("#  there are this many bad matches: ", len(qid_badmatches))
 	}
