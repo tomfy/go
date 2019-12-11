@@ -49,7 +49,7 @@ func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_s
 
 func Construct_from_sequence_set_x(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int, pp_seq_chunk_set **Sequence_chunk_set, wg *sync.WaitGroup) {
 	defer wg.Done()
-//	var seq_chunk_set Sequence_chunk_set
+	//	var seq_chunk_set Sequence_chunk_set
 	seq_chunk_set := &Sequence_chunk_set{}
 	seq_chunk_set.Chunk_specs = get_chunk_set(sequence_set, chunk_size, n_chunks)
 	seq_chunk_set.Sequence_set = sequence_set
@@ -61,9 +61,9 @@ func Construct_from_sequence_set_x(sequence_set *sequenceset.Sequence_set, chunk
 		seq_chunk_set.Add_sequence()
 
 	}
-*pp_seq_chunk_set = seq_chunk_set
+	*pp_seq_chunk_set = seq_chunk_set
 	//	}
-//	return &seq_chunk_set
+	//	return &seq_chunk_set
 }
 
 // /*
@@ -214,7 +214,7 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_qs(qseq_id string, se
 }
 
 // search for relatives of q_seq_set  in scs, and, optionally (if add == true) add seqs in q_seq_set to scs after search
-func (scs *Sequence_chunk_set) Search_qs(q_seq_set *sequenceset.Sequence_set, n_keep int, add bool) (map[string][]*mytypes.MatchInfo, map[string][]*mytypes.MatchInfo, int, int) {
+func (scs *Sequence_chunk_set) Search_qs(q_seq_set *sequenceset.Sequence_set, n_keep int) (map[string][]*mytypes.MatchInfo, map[string][]*mytypes.MatchInfo, int, int) {
 	qid_smatchinfos := make(map[string][]*mytypes.MatchInfo) // keys query ids; values: slices of pointers to MatchInfo structs
 	qid_badmatches := make(map[string][]*mytypes.MatchInfo)
 	total_chunk_match_count := 0
@@ -241,10 +241,6 @@ func (scs *Sequence_chunk_set) Search_qs(q_seq_set *sequenceset.Sequence_set, n_
 			if len(bad_matches) > 0 {
 				qid_badmatches[qid] = bad_matches
 			}
-		}
-		if add {
-			//	fmt.Fprintln(os.Stderr, "adding a sequence to scs")
-			scs.Add_sequence() // add latest sequence
 		}
 	}
 	return qid_smatchinfos, qid_badmatches, total_chunk_match_count, total_mdmd_match_count
