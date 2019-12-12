@@ -102,7 +102,9 @@ func main() {
 			if n_chunks < 0 {
 				n_chunks = int(q_seq_sets[0].Sequence_length / chunk_size)
 			}
-
+			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, chunk_size, n_chunks)
+			_ = q_seqchunksets
+			
 			s_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(sfile, n_cpus, max_missing_data_proportion, &id_seqset, s_seq_sets)
 			fmt.Fprintln(os.Stderr, "Subj. len(s_seq_sets): ", len(s_seq_sets))
