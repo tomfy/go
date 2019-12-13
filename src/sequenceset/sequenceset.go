@@ -30,6 +30,12 @@ type Sequence_set struct {
 
 }
 
+type QsetSsetQSmi struct {
+	Qss   *Sequence_set
+	Sss   *Sequence_set
+	Qs_mi [][]*mytypes.MatchInfo
+}
+
 /* func Construct_empty() *Sequence_set {
 	seq_set := Sequence_set{
 		make([]string, 0),    // Sequences
