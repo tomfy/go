@@ -641,3 +641,22 @@ func min(a int, b int) int {
 	}
 	return b
 }
+
+func (seq_set *Sequence_set) Check_seq_index_id_maps() bool {
+	for i, _ := range seq_set.Sequences {
+		id := seq_set.SeqIndex_id[i]
+		ii := seq_set.SeqId_index[id]
+		if ii != i {
+			fmt.Println("seq set index/id inconsistency. i, ii: ", i, ii)
+			os.Exit(1)
+		}
+	}
+	for id, idx := range seq_set.SeqId_index {
+		id2 := seq_set.SeqIndex_id[idx]
+		if id2 != id {
+	fmt.Println("seq set index/id inconsistency. id, id2: ", id, id2)
+			os.Exit(1)
+		}
+	}
+	return true
+}

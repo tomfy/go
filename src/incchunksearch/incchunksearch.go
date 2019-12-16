@@ -36,12 +36,13 @@ func main() {
 	flag.StringVar(&files_string, "f", "", "comma separated names of input fasta files.")
 
 	/* search control parameters */
-	var chunk_size, n_chunks, n_keep, n_reps, n_cpus int
+	var chunk_size, n_chunks, n_keep, n_reps, n_cpus, old_way int
 	var seed int64
 	flag.IntVar(&n_cpus, "cpus", 1, "n cpus (number of cpus to use)")
 	flag.IntVar(&chunk_size, "size", 4, "number of snps in each chunk")
 	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use")
 	flag.IntVar(&n_keep, "keep", 20, "# of best matches to keep")
+	flag.IntVar(&old_way, "way", 1, "# 1 (default) old way, other: new way")
 	flag.Int64Var(&seed, "seed", -1, "# rng seed (default: set from clock.)")
 	flag.IntVar(&n_reps, "reps", 1, "# number of times to repeat the whole search (with different random chunk sets)")
 	var missing_data_prob, max_missing_data_proportion float64
@@ -129,7 +130,7 @@ func main() {
 			// do the chunkwise search for candidates
 			var qid_allokmatches map[string][]*mytypes.MatchInfo
 			t_before := time.Now()
-			if false {
+			if old_way == 1 {
 				qid_allokmatches = make(map[string][]*mytypes.MatchInfo)
 				for j := 0; j < n_cpus; j++ { // j is the offset between q set index (i) and s set index (k)
 
@@ -174,7 +175,7 @@ func main() {
 				// *********** done with chunkwise (candidate) search '2' *******************
 
 			}
-			fmt.Println("n qids: ", len(qid_allokmatches))
+			fmt.Println("# n qids: ", len(qid_allokmatches))
 			// get full distances for top n_keep candidate matches to each query
 			t_before_dists := time.Now()
 			for qid, okmatches := range qid_allokmatches { // for each query there are n_cpus*n_keep candidates
@@ -182,16 +183,17 @@ func main() {
 					return okmatches[i].ChunkMatchFraction > okmatches[j].ChunkMatchFraction
 				}) /* */
 				//	fmt.Printf("# N top matches: %d   ", len(okmatches))
-				fmt.Printf("%s  ", qid)
+			/*	fmt.Printf("%s  ", qid)
 				for _, okm := range okmatches {
 					fmt.Printf("%d %s %d %5.3f   ", okm.Index, okm.Id, okm.MatchCount, okm.ChunkMatchFraction)
 				}
-				fmt.Println("")
+				fmt.Println("") /* */
 
 				qss := id_seqset[qid]
+					_ = qss.Check_seq_index_id_maps()
 				q_seq := qss.Sequences[qss.SeqId_index[qid]]
 				top_matches := make([]mytypes.IdCmfDistance, n_keep)
-				fmt.Printf("%s ", qid)
+				fmt.Printf("%s  ", qid)
 				n_to_do := n_keep
 				if len(okmatches) < n_keep {
 					n_to_do = len(okmatches)
@@ -200,9 +202,11 @@ func main() {
 					matchinfo := okmatches[j]
 					s_id := matchinfo.Id
 					sss := id_seqset[s_id] // get the relevant Sequence_set
-					sidx1 := sss.SeqId_index[s_id]
+						_ = sss.Check_seq_index_id_maps()
+				//	sidx1 := sss.SeqId_index[s_id]
 					sidx2 := matchinfo.Index
-					fmt.Println("s index1,2: ", sidx1, sidx2)
+				//	sid2 := sss.SeqIndex_id[sidx2]
+				//	fmt.Println("  s id, index1,2, sid2: ", s_id, sidx1, sidx2, sid2)
 					s_seq := sss.Sequences[sidx2] // sss.Sequences[sss.SeqId_index[s_id]]
 					n00_22, n11, nd1, nd2 := sequenceset.Distance(q_seq, s_seq)
 					dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
