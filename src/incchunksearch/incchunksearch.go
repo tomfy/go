@@ -149,7 +149,7 @@ func main() {
 				search_time += int64(time.Now().Sub(t_before))
 				// done with chunkwise (candidate) search
 			} else {
-	fmt.Fprintf(os.Stderr, "top of SEARCH 2\n")
+				fmt.Fprintf(os.Stderr, "top of SEARCH 2\n")
 				// *********************************************** '2' **********************
 				t_before = time.Now()
 				qid_matchinfos := make(map[string][]*mytypes.MatchInfo, 0)
@@ -169,28 +169,41 @@ func main() {
 					wg1.Wait()
 				}
 				search_time2 += int64(time.Now().Sub(t_before)) /* */
-				fmt.Fprintf(os.Stderr, "search_time2: %10.3f \n",  0.001*float64(search_time2/1000000))
+				fmt.Fprintf(os.Stderr, "search_time2: %10.3f \n", 0.001*float64(search_time2/1000000))
 				qid_allokmatches = qid_matchinfos
 				// *********** done with chunkwise (candidate) search '2' *******************
-				
-			}
 
+			}
+			fmt.Println("n qids: ", len(qid_allokmatches))
 			// get full distances for top n_keep candidate matches to each query
 			t_before_dists := time.Now()
 			for qid, okmatches := range qid_allokmatches { // for each query there are n_cpus*n_keep candidates
 				sort.Slice(okmatches, func(i, j int) bool { // sort them
 					return okmatches[i].ChunkMatchFraction > okmatches[j].ChunkMatchFraction
 				}) /* */
+				//	fmt.Printf("# N top matches: %d   ", len(okmatches))
+				fmt.Printf("%s  ", qid)
+				for _, okm := range okmatches {
+					fmt.Printf("%d %s %d %5.3f   ", okm.Index, okm.Id, okm.MatchCount, okm.ChunkMatchFraction)
+				}
+				fmt.Println("")
 
 				qss := id_seqset[qid]
 				q_seq := qss.Sequences[qss.SeqId_index[qid]]
 				top_matches := make([]mytypes.IdCmfDistance, n_keep)
 				fmt.Printf("%s ", qid)
-				for j := 0; j < n_keep; j++ { // calculate distance for the n_keep top candidates.
+				n_to_do := n_keep
+				if len(okmatches) < n_keep {
+					n_to_do = len(okmatches)
+				}
+				for j := 0; j < n_to_do; j++ { // calculate distance for the n_keep top candidates.
 					matchinfo := okmatches[j]
 					s_id := matchinfo.Id
 					sss := id_seqset[s_id] // get the relevant Sequence_set
-					s_seq := sss.Sequences[sss.SeqId_index[s_id]]
+					sidx1 := sss.SeqId_index[s_id]
+					sidx2 := matchinfo.Index
+					fmt.Println("s index1,2: ", sidx1, sidx2)
+					s_seq := sss.Sequences[sidx2] // sss.Sequences[sss.SeqId_index[s_id]]
 					n00_22, n11, nd1, nd2 := sequenceset.Distance(q_seq, s_seq)
 					dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
 					top_matches[j] = mytypes.IdCmfDistance{s_id, matchinfo.ChunkMatchFraction, dist}
@@ -565,17 +578,17 @@ func store_matches(ch chan map[string][]*mytypes.MatchInfo, qid_allokmatches map
 func store_matches_x(ch chan sequenceset.QsetSsetQSmi, qid_matchinfos map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
-		qs_matchinfos, ok := <-ch // ok will be false iff channel is empty and closed.
+		qsqsmi, ok := <-ch // ok will be false iff channel is empty and closed.
 		if ok {
-			qset := qs_matchinfos.Qss
-			sset := qs_matchinfos.Sss
-			for qi, s_mi := range qs_matchinfos.Qs_mi {
+			qset := qsqsmi.Qss
+			sset := qsqsmi.Sss
+			for qi, s_mi := range qsqsmi.Qs_mi { // s_mi slice of pointers to MatchInfo
 				//	fmt.Fprintln(os.Stderr, "type of: ", reflect.TypeOf(okmatches))
 
 				qid := qset.SeqIndex_id[qi]
 
 				minfos, ok := qid_matchinfos[qid]
-				if ok {
+				if ok { // we already have some matches to this query id
 					//	new_minfos := make([]mytypes.MatchInfo, len(s_mi))
 					for si, minfo := range s_mi {
 						sid := sset.SeqIndex_id[si]
@@ -584,6 +597,14 @@ func store_matches_x(ch chan sequenceset.QsetSsetQSmi, qid_matchinfos map[string
 						qid_matchinfos[qid] = append(minfos, minfo)
 					}
 					//	qid_matchinfos[qid] = append(minfos, new_minfos)
+				} else { // no matches yet to this query id, because this is the first set of subjs done.
+					for si, minfo := range s_mi {
+						sid := sset.SeqIndex_id[si]
+						minfo.Id = sid
+						//	new_minfos[si] = minfo
+					}
+					qid_matchinfos[qid] = s_mi
+
 				}
 			}
 		} else { // channel is empty and closed.
