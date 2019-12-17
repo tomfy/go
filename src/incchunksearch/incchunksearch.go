@@ -36,13 +36,13 @@ func main() {
 	flag.StringVar(&files_string, "f", "", "comma separated names of input fasta files.")
 
 	/* search control parameters */
-	var chunk_size, n_chunks, n_keep, n_reps, n_cpus, old_way int
+	var chunk_size, n_chunks, n_keep, n_reps, n_cpus int
 	var seed int64
 	flag.IntVar(&n_cpus, "cpus", 1, "n cpus (number of cpus to use)")
 	flag.IntVar(&chunk_size, "size", 4, "number of snps in each chunk")
 	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use")
 	flag.IntVar(&n_keep, "keep", 20, "# of best matches to keep")
-	flag.IntVar(&old_way, "way", 1, "# 1 (default) old way, other: new way")
+//	flag.IntVar(&way, "way", 1, "# 1 (default) old way, other: new way")
 	flag.Int64Var(&seed, "seed", -1, "# rng seed (default: set from clock.)")
 	flag.IntVar(&n_reps, "reps", 1, "# number of times to repeat the whole search (with different random chunk sets)")
 	var missing_data_prob, max_missing_data_proportion float64
@@ -107,14 +107,14 @@ func main() {
 
 			the_chunk_specs := seqchunkset.Get_chunk_specs(q_seq_sets[0], chunk_size, n_chunks)
 
-			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs) // chunk_size, n_chunks)
+			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs, true, false) // chunk_size, n_chunks)
 			_ = q_seqchunksets
 
 			s_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(sfile, n_cpus, max_missing_data_proportion, &id_seqset, s_seq_sets)
 			fmt.Fprintln(os.Stderr, "Subj. len(s_seq_sets): ", len(s_seq_sets))
 
-			s_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(s_seq_sets, the_chunk_specs) // chunk_size, n_chunks)
+			s_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(s_seq_sets, the_chunk_specs, false, true) // chunk_size, n_chunks)
 
 			fmt.Fprintf(os.Stderr, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
 				chunk_size, n_chunks, n_keep, n_cpus, seed)
@@ -130,26 +130,26 @@ func main() {
 			// do the chunkwise search for candidates
 			var qid_allokmatches map[string][]*mytypes.MatchInfo
 			t_before := time.Now()
-			if old_way == 1 {
-				qid_allokmatches = make(map[string][]*mytypes.MatchInfo)
-				for j := 0; j < n_cpus; j++ { // j is the offset between q set index (i) and s set index (k)
+			//	if old_way == 1 {
+			qid_allokmatches = make(map[string][]*mytypes.MatchInfo)
+			for j := 0; j < n_cpus; j++ { // j is the offset between q set index (i) and s set index (k)
 
-					the_channel := make(chan map[string][]*mytypes.MatchInfo)
-					wg1.Add(1)
-					go store_matches(the_channel, qid_allokmatches, &wg1)
+				the_channel := make(chan map[string][]*mytypes.MatchInfo)
+				wg1.Add(1)
+				go store_matches(the_channel, qid_allokmatches, &wg1)
 
-					for i, qss := range q_seq_sets {
-						k := (i + j) % n_cpus
-						wg2.Add(1)
-						go search(qss, s_seqchunksets[k], n_keep, the_channel, &wg2)
-					}
-					wg2.Wait()
-					close(the_channel)
-					wg1.Wait()
+				for i, qscs := range q_seqchunksets {
+					k := (i + j) % n_cpus
+					wg2.Add(1)
+					go search(qscs, s_seqchunksets[k], n_keep, the_channel, &wg2)
 				}
-				search_time += int64(time.Now().Sub(t_before))
-				// done with chunkwise (candidate) search
-			} else {
+				wg2.Wait()
+				close(the_channel)
+				wg1.Wait()
+			}
+			search_time += int64(time.Now().Sub(t_before))
+			// done with chunkwise (candidate) search
+			/*	} else {
 				fmt.Fprintf(os.Stderr, "top of SEARCH 2\n")
 				// *********************************************** '2' **********************
 				t_before = time.Now()
@@ -169,12 +169,12 @@ func main() {
 					close(the_channel)
 					wg1.Wait()
 				}
-				search_time2 += int64(time.Now().Sub(t_before)) /* */
+				search_time2 += int64(time.Now().Sub(t_before))
 				fmt.Fprintf(os.Stderr, "search_time2: %10.3f \n", 0.001*float64(search_time2/1000000))
 				qid_allokmatches = qid_matchinfos
 				// *********** done with chunkwise (candidate) search '2' *******************
 
-			}
+			} /* */
 			fmt.Println("# n qids: ", len(qid_allokmatches))
 			// get full distances for top n_keep candidate matches to each query
 			t_before_dists := time.Now()
@@ -183,14 +183,14 @@ func main() {
 					return okmatches[i].ChunkMatchFraction > okmatches[j].ChunkMatchFraction
 				}) /* */
 				//	fmt.Printf("# N top matches: %d   ", len(okmatches))
-			/*	fmt.Printf("%s  ", qid)
-				for _, okm := range okmatches {
-					fmt.Printf("%d %s %d %5.3f   ", okm.Index, okm.Id, okm.MatchCount, okm.ChunkMatchFraction)
-				}
-				fmt.Println("") /* */
+				/*	fmt.Printf("%s  ", qid)
+					for _, okm := range okmatches {
+						fmt.Printf("%d %s %d %5.3f   ", okm.Index, okm.Id, okm.MatchCount, okm.ChunkMatchFraction)
+					}
+					fmt.Println("") /* */
 
 				qss := id_seqset[qid]
-					_ = qss.Check_seq_index_id_maps()
+				_ = qss.Check_seq_index_id_maps()
 				q_seq := qss.Sequences[qss.SeqId_index[qid]]
 				top_matches := make([]mytypes.IdCmfDistance, n_keep)
 				fmt.Printf("%s  ", qid)
@@ -202,11 +202,11 @@ func main() {
 					matchinfo := okmatches[j]
 					s_id := matchinfo.Id
 					sss := id_seqset[s_id] // get the relevant Sequence_set
-						_ = sss.Check_seq_index_id_maps()
-				//	sidx1 := sss.SeqId_index[s_id]
+					_ = sss.Check_seq_index_id_maps()
+					//	sidx1 := sss.SeqId_index[s_id]
 					sidx2 := matchinfo.Index
-				//	sid2 := sss.SeqIndex_id[sidx2]
-				//	fmt.Println("  s id, index1,2, sid2: ", s_id, sidx1, sidx2, sid2)
+					//	sid2 := sss.SeqIndex_id[sidx2]
+					//	fmt.Println("  s id, index1,2, sid2: ", s_id, sidx1, sidx2, sid2)
 					s_seq := sss.Sequences[sidx2] // sss.Sequences[sss.SeqId_index[s_id]]
 					n00_22, n11, nd1, nd2 := sequenceset.Distance(q_seq, s_seq)
 					dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
@@ -283,7 +283,8 @@ func main() {
 				}
 
 				t_before := time.Now()
-				seqchset := seqchunkset.Construct_empty(q_sequence_set, chunk_size, n_chunks) //
+				the_chunk_specs := seqchunkset.Get_chunk_specs(q_sequence_set, chunk_size, n_chunks)
+				seqchset := seqchunkset.Construct_empty(q_sequence_set, the_chunk_specs) //
 				//	fmt.Fprintln(os.Stderr, "save2: ", save2, (save2 == 1) )
 				qid_okmatches, qid_badmatches, total_chunk_match_count, total_mdmd_match_count := seqchset.Search_pq(q_sequence_set, n_keep, true, &qid_cmfpq)
 				_ = qid_okmatches
@@ -579,7 +580,24 @@ func store_matches(ch chan map[string][]*mytypes.MatchInfo, qid_allokmatches map
 
 }
 
-func store_matches_x(ch chan sequenceset.QsetSsetQSmi, qid_matchinfos map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
+
+
+func search(qscs *seqchunkset.Sequence_chunk_set, scs *seqchunkset.Sequence_chunk_set, n_keep int, ch chan map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
+	defer wg.Done()
+	qid_okmatches, qid_badmatches, total_chunk_match_count, total_mdmd_match_count :=
+		scs.Search_qs(qscs, n_keep) //, &qid_cmfpq)
+	_ = total_chunk_match_count
+	_ = total_mdmd_match_count
+	ch <- qid_okmatches
+	//	fmt.Fprintln(os.Stderr, "len(qid_okmatches): ", len(qid_okmatches))
+	if len(qid_badmatches) > 0 {
+		fmt.Println("#  there are this many bad matches: ", len(qid_badmatches))
+	}
+}
+
+
+
+/* func store_matches_x(ch chan sequenceset.QsetSsetQSmi, qid_matchinfos map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		qsqsmi, ok := <-ch // ok will be false iff channel is empty and closed.
@@ -617,23 +635,9 @@ func store_matches_x(ch chan sequenceset.QsetSsetQSmi, qid_matchinfos map[string
 	}
 	return
 }
-
-func search(qss *sequenceset.Sequence_set, scs *seqchunkset.Sequence_chunk_set, n_keep int, ch chan map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
-	defer wg.Done()
-	qid_okmatches, qid_badmatches, total_chunk_match_count, total_mdmd_match_count :=
-		scs.Search_qs(qss, n_keep) //, &qid_cmfpq)
-	_ = total_chunk_match_count
-	_ = total_mdmd_match_count
-	ch <- qid_okmatches
-	//	fmt.Fprintln(os.Stderr, "len(qid_okmatches): ", len(qid_okmatches))
-	if len(qid_badmatches) > 0 {
-		fmt.Println("#  there are this many bad matches: ", len(qid_badmatches))
-	}
-}
-
 func search_x(qscs *seqchunkset.Sequence_chunk_set, sscs *seqchunkset.Sequence_chunk_set, n_keep int, ch chan sequenceset.QsetSsetQSmi, wg *sync.WaitGroup) {
 	defer wg.Done()
 	qs_matchinfos := sscs.Search_qs_x(qscs, n_keep)
 	x := sequenceset.QsetSsetQSmi{qscs.Sequence_set, sscs.Sequence_set, qs_matchinfos}
 	ch <- x
-}
+} /* */

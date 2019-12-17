@@ -36,23 +36,6 @@ type QsetSsetQSmi struct {
 	Qs_mi [][]*mytypes.MatchInfo
 }
 
-/* func Construct_empty() *Sequence_set {
-	seq_set := Sequence_set{
-		make([]string, 0),    // Sequences
-		-1,                   // Sequence_length
-		make(map[int]string), // SeqIndex_id
-		make(map[string]int), // SeqId_index
-		make(map[int]string), // SnpIndex_id
-		make(map[string]int), // SnpId_index
-		make(map[string]int), // SnpId_mdcount
-		make([]string, 0),    // Sorted_snp_ids
-		-1,                   // Max_md_count
-		-1,                   // N_ok_snps
-
-	}
-	return &seq_set
-} /* */
-
 func Construct_from_matrix_file(filename string, max_md_prop float64, id_seqset *map[string]*Sequence_set,
 	seq_set *Sequence_set, waitgroup *sync.WaitGroup) {
 

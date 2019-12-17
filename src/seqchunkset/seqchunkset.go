@@ -11,7 +11,6 @@ import (
 	"sort"
 	"sync"
 	//	"testing"
-	
 )
 
 // var Match_count_increment_count int
@@ -21,8 +20,9 @@ type Sequence_chunk_set struct {
 	Chunk_size                int
 	Chunk_specs               []chunk_spec
 	Chunk__seq_matchindices   map[string]map[string][]int // keys are chunk specifier strings, values are maps, whose keys are chunk seqs (e.g. '10020101') values are slices of sequence indices
-	Missing_data_chunk_counts []int                       // Missing_data_chunk_counts[i] is the number of chunks with missing data for sequence with index i
-	N_chunked_sequences       int                         // number of sequences entered into Chunk__seq_matchindices, Missing_data_chunk_counts so far.
+	Id__chsp_chseq            map[string]map[string]string
+	Missing_data_chunk_counts []int // Missing_data_chunk_counts[i] is the number of chunks with missing data for sequence with index i
+	N_chunked_sequences       int   // number of sequences entered into Chunk__seq_matchindices, Missing_data_chunk_counts so far.
 }
 
 type chunk_spec struct {
@@ -37,72 +37,51 @@ type Index_matchcount struct {
 
 // *********************** exported functions *********************************************
 
-func Construct_multiple_from_sequence_sets(seq_sets []*sequenceset.Sequence_set, the_chunk_specs []chunk_spec) []*Sequence_chunk_set {
+func Construct_multiple_from_sequence_sets(seq_sets []*sequenceset.Sequence_set, chunk_specs []chunk_spec, q bool, s bool) []*Sequence_chunk_set {
 	// concurrently construct a seqchunkset for each element of seq_sets
 	s_seqchunksets := make([]*Sequence_chunk_set, len(seq_sets))
 	var wg sync.WaitGroup
 
-	//	the_chunk_specs := Get_chunk_specs(seq_sets[0], chunk_size, n_chunks)
-	for i, sss := range seq_sets {
+	for i, seqset := range seq_sets {
 		wg.Add(1)
-		go Construct_from_sequence_set_and_chunk_specs(sss, the_chunk_specs, &(s_seqchunksets[i]), &wg)
+		go Construct_from_sequence_set_and_chunk_specs(seqset, chunk_specs, q, s, &(s_seqchunksets[i]), &wg)
 	}
 	wg.Wait()
 	return s_seqchunksets
 }
 
-func Construct_from_sequence_set(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int) *Sequence_chunk_set {
-
-	var seq_chunk_set Sequence_chunk_set
-	seq_chunk_set.Chunk_specs = Get_chunk_specs(sequence_set, chunk_size, n_chunks)
-	seq_chunk_set.Chunk_size = chunk_size
-	seq_chunk_set.Sequence_set = sequence_set
-	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
-	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(sequence_set.Sequences)) // missing_data_chunk_counts
-	seq_chunk_set.N_chunked_sequences = 0
-	for i := 0; i < len(sequence_set.Sequences); i++ {
-		seq_chunk_set.Add_sequence()
-	}
-	return &seq_chunk_set
-}
-
-func Construct_from_sequence_set_and_chunk_specs(sequence_set *sequenceset.Sequence_set, chunk_specs []chunk_spec, pp_seq_chunk_set **Sequence_chunk_set, wg *sync.WaitGroup) {
+func Construct_from_sequence_set_and_chunk_specs(sequence_set *sequenceset.Sequence_set, chunk_specs []chunk_spec, q bool, s bool, pp_seq_chunk_set **Sequence_chunk_set, wg *sync.WaitGroup) {
 	defer wg.Done()
-	//	var seq_chunk_set Sequence_chunk_set
-	seq_chunk_set := &Sequence_chunk_set{}
-	seq_chunk_set.Chunk_specs = chunk_specs // get_chunk_set(sequence_set, chunk_size, n_chunks)
-	seq_chunk_set.Sequence_set = sequence_set
-	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int)          // chunk__seq_matchindices
-	seq_chunk_set.Missing_data_chunk_counts = make([]int, len(sequence_set.Sequences)) // missing_data_chunk_counts
-	seq_chunk_set.N_chunked_sequences = 0
-	for i := 0; i < len(sequence_set.Sequences); i++ {
-		//	id := sequence_set.SeqIndex_id[index]
-		seq_chunk_set.Add_sequence()
 
+	seq_chunk_set := Construct_empty(sequence_set, chunk_specs)
+
+	for i := 0; i < len(sequence_set.Sequences); i++ {
+		seq_chunk_set.Add_next_sequence(q, s)
 	}
+
 	*pp_seq_chunk_set = seq_chunk_set
-	//	}
-	//	return &seq_chunk_set
+
 }
 
-// /*
-func Construct_empty(sequence_set *sequenceset.Sequence_set, chunk_size int, n_chunks int) *Sequence_chunk_set {
+func Construct_empty(sequence_set *sequenceset.Sequence_set, chunk_specs []chunk_spec) *Sequence_chunk_set {
 
 	var seq_chunk_set Sequence_chunk_set
-	seq_chunk_set.Chunk_specs = Get_chunk_specs(sequence_set, chunk_size, n_chunks)
+	seq_chunk_set.Chunk_specs = chunk_specs                                   // Get_chunk_specs(sequence_set, chunk_size, n_chunks)
 	seq_chunk_set.Sequence_set = sequence_set                                 // sequenceset.Construct_empty()
 	seq_chunk_set.Chunk__seq_matchindices = make(map[string]map[string][]int) // chunk__seq_matchindices
 	seq_chunk_set.Missing_data_chunk_counts = make([]int, 0)                  // missing_data_chunk_counts
+	seq_chunk_set.Id__chsp_chseq = make(map[string]map[string]string)
 	seq_chunk_set.N_chunked_sequences = 0
 	return &seq_chunk_set
-} /* */
+}
 
-func (scs *Sequence_chunk_set) Add_sequence() {
+func (scs *Sequence_chunk_set) Add_next_sequence(q bool, s bool) { //
 
 	new_index := scs.N_chunked_sequences // this is the number of sequences in the sequence_chunk_set so far
 	seq_set := scs.Sequence_set
 	sequence := seq_set.Sequences[new_index]
-
+	new_id := seq_set.SeqIndex_id[new_index]
+	chsp_chseq := make(map[string]string)
 	scs.Missing_data_chunk_counts = append(scs.Missing_data_chunk_counts, 0)
 
 	for _, chsp := range scs.Chunk_specs { // loop over chunk specifiers
@@ -114,19 +93,28 @@ func (scs *Sequence_chunk_set) Add_sequence() {
 			scs.Chunk__seq_matchindices[css] = seq_matchindices
 		}
 		chunk_seq := get_chunk_seq(scs.Sequence_set.SnpId_index, sequence, csa, &scs.Missing_data_chunk_counts[new_index])
-		matchindices, ok2 := seq_matchindices[chunk_seq] // matchindices is slice of indices of sequences which match on this chunk.
-		if !ok2 {
-			matchindices = make([]int, 0, 1)
-			scs.Chunk__seq_matchindices[css][chunk_seq] = matchindices
+		// have css (chunk-spec in str form) and chunk_seq
+		if q {
+			chsp_chseq[css] = chunk_seq
 		}
-		scs.Chunk__seq_matchindices[css][chunk_seq] = append(matchindices, new_index) // push the sequence index onto appropriate slice
+		if s {
+			matchindices, ok2 := seq_matchindices[chunk_seq] // matchindices is slice of indices of sequences which match on this chunk.
+			if !ok2 {
+				matchindices = make([]int, 0, 1)
+				scs.Chunk__seq_matchindices[css][chunk_seq] = matchindices
+			}
+			scs.Chunk__seq_matchindices[css][chunk_seq] = append(matchindices, new_index) // push the sequence index onto appropriate slice
+		}
 	}
+	scs.Id__chsp_chseq[new_id] = chsp_chseq
 	scs.N_chunked_sequences++
 }
 
 // search for relative of query sequence  sequence  using the seqchunkset scs.
-func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_qs(qseq_id string, sequence string, n_top int) ([]*mytypes.MatchInfo, []*mytypes.MatchInfo, int, int) {
-
+func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_qs(qscs *Sequence_chunk_set, qid string, n_top int) ([]*mytypes.MatchInfo, []*mytypes.MatchInfo, int, int) {
+	chsp_chseq := qscs.Id__chsp_chseq[qid]
+	qindex := qscs.Sequence_set.SeqId_index[qid]
+	sequence := qscs.Sequence_set.Sequences[qindex]
 	seq_length := len(sequence)
 	n_subj_seqs := scs.N_chunked_sequences
 	n_chunks := len(scs.Chunk_specs)
@@ -149,14 +137,18 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_qs(qseq_id string, se
 		csa := chsp.a
 		css := chsp.s // scs.Chunk_spec_strings[ich]
 		chunk_seq := ""
-		for _, snp_id := range csa { // assemble the sequence chunk (string)
-			idx := scs.Sequence_set.SnpId_index[snp_id]
-			char := sequence[idx : idx+1]
-			if char == string(mytypes.MDchar) {
-				chunk_seq = "Missing_data"
-				break
+		if true {
+			chunk_seq = chsp_chseq[css]
+		} else {
+			for _, snp_id := range csa { // assemble the sequence chunk (string)
+				idx := scs.Sequence_set.SnpId_index[snp_id]
+				char := sequence[idx : idx+1]
+				if char == string(mytypes.MDchar) {
+					chunk_seq = "Missing_data"
+					break
+				}
+				chunk_seq += sequence[idx : idx+1]
 			}
-			chunk_seq += sequence[idx : idx+1]
 		}
 		seq_matchindices, ok1 := chunk__seq_matchindices[css]
 		if ok1 {
@@ -171,7 +163,7 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_qs(qseq_id string, se
 					for _, mindex := range matchindices {
 						//	fmt.Fprintln(os.Stderr, "Mindex:  ", mindex)
 						chunkwise_match_info[mindex].MatchCount++ // O(N^2 S_ch)
-					//	Match_count_increment_count++
+						//	Match_count_increment_count++
 					}
 				}
 			}
@@ -223,15 +215,17 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_qs(qseq_id string, se
 }
 
 // search for relatives of q_seq_set  in scs, and, optionally (if add == true) add seqs in q_seq_set to scs after search
-func (scs *Sequence_chunk_set) Search_qs(q_seq_set *sequenceset.Sequence_set, n_keep int) (map[string][]*mytypes.MatchInfo, map[string][]*mytypes.MatchInfo, int, int) {
+func (scs *Sequence_chunk_set) Search_qs(qscs *Sequence_chunk_set, n_keep int) (map[string][]*mytypes.MatchInfo, map[string][]*mytypes.MatchInfo, int, int) {
+	q_seq_set := qscs.Sequence_set
 	qid_smatchinfos := make(map[string][]*mytypes.MatchInfo) // keys query ids; values: slices of pointers to MatchInfo structs
 	qid_badmatches := make(map[string][]*mytypes.MatchInfo)
 	total_chunk_match_count := 0
 	total_mdmd_match_count := 0
 	for qindex, qseq := range q_seq_set.Sequences {
+		_ = qseq
 		qid := q_seq_set.Seq_index_to_id(qindex)
 		if true { // search against the previously read-in sequences
-			top_smatchinfos, bad_matches, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts_qs(qid, qseq, n_keep) //, qid_cmfpq)
+			top_smatchinfos, bad_matches, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts_qs(qscs, qid, n_keep) //, qid_cmfpq)
 			/*	for _, mtchinfo := range top_smatchinfos{
 				id1 := qid
 				id2 := mtchinfo.Id
@@ -252,110 +246,8 @@ func (scs *Sequence_chunk_set) Search_qs(q_seq_set *sequenceset.Sequence_set, n_
 			}
 		}
 	}
-//	fmt.Println("Match count increment count: ", Match_count_increment_count)
+	//	fmt.Println("Match count increment count: ", Match_count_increment_count)
 	return qid_smatchinfos, qid_badmatches, total_chunk_match_count, total_mdmd_match_count
-}
-
-func (sscs *Sequence_chunk_set) Search_qs_x(qscs *Sequence_chunk_set, n_keep int) [][]*mytypes.MatchInfo {
-	n_seqs := len(sscs.Sequence_set.Sequences)
-	n_q_matches := 0
-	qs_matchcounts := make([][]*mytypes.MatchInfo, n_seqs)
-	n_chunks := len(sscs.Chunk_specs)
-	for i := 0; i < n_seqs; i++ { // i == index of query seq.
-		qs_matchcounts[i] = make([]*mytypes.MatchInfo, n_seqs) // qs_matchcounts[i][j] will be the number of chunk matches between q sequence i, and s sequence j
-		for j := 0; j < n_seqs; j++ {                          // j == index of subj. seq.
-			x := mytypes.MatchInfo{Index: j, Id: sscs.Sequence_set.SeqIndex_id[j], MatchCount: 0, OkChunkCount: n_chunks}
-			qs_matchcounts[i][j] = &x
-		}
-	}
-	for ch_spec, s_seq_matchindices := range sscs.Chunk__seq_matchindices {
-		q_seq_matchindices, ok1 := qscs.Chunk__seq_matchindices[ch_spec]
-		if !ok1 {
-			fmt.Fprintln(os.Stderr, "in Search_qs_x, ok1 is false")
-			os.Exit(1)
-		}
-
-		for ch_seq, s_matchindices := range s_seq_matchindices {
-			//	fmt.Println("ch spec: ", ch_spec, "  ch_seq: ", ch_seq)
-			q_matchindices, ok2 := q_seq_matchindices[ch_seq]
-			if !ok2 { // this is not a problem - there are many ch_spec / ch_seq combinations present in a small number of s seqs, absent in q seqs.
-				//	fmt.Fprintln(os.Stderr, "in Search_qs_x, ok2 is false. ch_spec: ", ch_spec, "  ch_seq: ", ch_seq);
-				//	os.Exit(1)
-				n_q_matches = 0
-			} else {
-				for _, q_mindex := range q_matchindices {
-					
-					s_matchcounts := qs_matchcounts[q_mindex]
-					//	fmt.Println("q_mindex, n matches: ", q_mindex, len(s_matchindices))
-					for _, s_mindex := range s_matchindices {
-						//	fmt.Println("  ", q_mindex, s_mindex)
-						s_matchcounts[s_mindex].MatchCount++
-						/* if s_matchcounts[s_mindex].Index != s_mindex {
-							fmt.Println("XXX!")
-							os.Exit(1)
-						} /* */
-					//	Match_count_increment_count++
-					}
-				}
-				n_q_matches = len(q_matchindices)
-			}
-			//	fmt.Println("ch_spec: ", ch_spec, "  ch_seq: ", ch_seq, "  n s,q matches: ", len(s_matchindices), n_q_matches)
-			_ = n_q_matches
-		}
-	}
-
-	for k, s_matchcounts := range qs_matchcounts {
-	//	qid := qscs.Sequence_set.SeqIndex_id[k]
-		for j, matchinfo := range s_matchcounts {
-			matchinfo.ChunkMatchFraction = float64(matchinfo.MatchCount) / float64(matchinfo.OkChunkCount)
-			if matchinfo.Index != j {
-				fmt.Println("XXXY")
-				os.Exit(1)
-			}
-		}
-	/*	for z, mc := range s_matchcounts {
-			fmt.Printf("Aa  %d %d  %d  %d   ", k, z, mc.MatchCount, mc.Index)
-		}
-		fmt.Println("") /* */
-		if n_keep <= n_seqs {
-		//	fmt.Println("quickselect to get top ", n_keep, " matches to: ", qid, " (by chunk match fraction")
-
-			s_matchcounts = quickselect(s_matchcounts, n_keep) // top n_keep matches, i
-			for z, mc := range s_matchcounts {
-				_ = z
-				id1 := sscs.Sequence_set.SeqIndex_id[mc.Index]
-			//	fmt.Printf("   %d %d  %d  %d %s %s  ", k, z, mc.MatchCount, mc.Index, mc.Id, id1)
-				idx1 := sscs.Sequence_set.SeqId_index[id1]
-				if idx1 != mc.Index {
-					fmt.Println("idx0,1: ", mc.Index, idx1, " should be equal. Bye.")
-					os.Exit(1)
-				}
-				//	id2 := sscs.Sequence_set.SeqIndex_id[]
-			}
-		//	fmt.Println("\n") /* */
-			qs_matchcounts[k] = s_matchcounts
-		}
-	}
-	sss := sscs.Sequence_set
-	_ = sss.Check_seq_index_id_maps()
-/*	for q, s_matchcounts := range qs_matchcounts {
-		for s, matchcounts := range s_matchcounts {
-			fmt.Printf("B %d %d %d %d [%s  %s] %5.3f  ",
-				q, s, matchcounts.MatchCount, matchcounts.Index, sss.SeqIndex_id[matchcounts.Index],
-				matchcounts.Id, matchcounts.ChunkMatchFraction)
-		}
-		fmt.Println("")
-	} /* */
-
-/*	for iq, s_mcs := range qs_matchcounts {
-		fmt.Printf("X: %d %s    ", iq, qscs.Sequence_set.SeqIndex_id[iq])
-		for is, mc := range s_mcs {
-			fmt.Printf("%d %d %s  ", is, mc.Index, sss.SeqIndex_id[mc.Index])
-		}
-		fmt.Println("")
-	} /* */
-//q	fmt.Println("match count increment count: ", Match_count_increment_count)
-	return qs_matchcounts
 }
 
 // search for relative of query sequence  sequence  using the seqchunkset scs.
@@ -511,7 +403,7 @@ func (scs *Sequence_chunk_set) Search_pq(q_seq_set *sequenceset.Sequence_set, n_
 		}
 		if add {
 			//	fmt.Fprintln(os.Stderr, "adding a sequence to scs")
-			scs.Add_sequence() // add latest sequence
+			scs.Add_next_sequence(true, true) // add latest sequence
 		}
 
 	}
@@ -677,4 +569,85 @@ func TestEqual(a int, b int) {
 		scs.Add_sequence() // add latest sequence
 	}
 	return qid_smatchinfos, qid_badmatches, total_chunk_match_count, total_mdmd_match_count
+} /* */
+
+/*
+func (sscs *Sequence_chunk_set) Search_qs_x(qscs *Sequence_chunk_set, n_keep int) [][]*mytypes.MatchInfo {
+	n_seqs := len(sscs.Sequence_set.Sequences)
+	n_q_matches := 0
+	qs_matchcounts := make([][]*mytypes.MatchInfo, n_seqs)
+	n_chunks := len(sscs.Chunk_specs)
+	for i := 0; i < n_seqs; i++ { // i == index of query seq.
+		qs_matchcounts[i] = make([]*mytypes.MatchInfo, n_seqs) // qs_matchcounts[i][j] will be the number of chunk matches between q sequence i, and s sequence j
+		for j := 0; j < n_seqs; j++ {                          // j == index of subj. seq.
+			x := mytypes.MatchInfo{Index: j, Id: sscs.Sequence_set.SeqIndex_id[j], MatchCount: 0, OkChunkCount: n_chunks}
+			qs_matchcounts[i][j] = &x
+		}
+	}
+	for ch_spec, s_seq_matchindices := range sscs.Chunk__seq_matchindices {
+		q_seq_matchindices, ok1 := qscs.Chunk__seq_matchindices[ch_spec]
+		if !ok1 {
+			fmt.Fprintln(os.Stderr, "in Search_qs_x, ok1 is false")
+			os.Exit(1)
+		}
+
+		for ch_seq, s_matchindices := range s_seq_matchindices {
+			//	fmt.Println("ch spec: ", ch_spec, "  ch_seq: ", ch_seq)
+			q_matchindices, ok2 := q_seq_matchindices[ch_seq]
+			if !ok2 { // this is not a problem - there are many ch_spec / ch_seq combinations present in a small number of s seqs, absent in q seqs.
+				//	fmt.Fprintln(os.Stderr, "in Search_qs_x, ok2 is false. ch_spec: ", ch_spec, "  ch_seq: ", ch_seq);
+				//	os.Exit(1)
+				n_q_matches = 0
+			} else {
+				for _, q_mindex := range q_matchindices {
+
+					s_matchcounts := qs_matchcounts[q_mindex]
+					//	fmt.Println("q_mindex, n matches: ", q_mindex, len(s_matchindices))
+					for _, s_mindex := range s_matchindices {
+						//	fmt.Println("  ", q_mindex, s_mindex)
+						s_matchcounts[s_mindex].MatchCount++
+
+						//	Match_count_increment_count++
+					}
+				}
+				n_q_matches = len(q_matchindices)
+			}
+			//	fmt.Println("ch_spec: ", ch_spec, "  ch_seq: ", ch_seq, "  n s,q matches: ", len(s_matchindices), n_q_matches)
+			_ = n_q_matches
+		}
+	}
+
+	for k, s_matchcounts := range qs_matchcounts {
+		//	qid := qscs.Sequence_set.SeqIndex_id[k]
+		for j, matchinfo := range s_matchcounts {
+			matchinfo.ChunkMatchFraction = float64(matchinfo.MatchCount) / float64(matchinfo.OkChunkCount)
+			if matchinfo.Index != j {
+				fmt.Println("XXXY")
+				os.Exit(1)
+			}
+		}
+
+		if n_keep <= n_seqs {
+			//	fmt.Println("quickselect to get top ", n_keep, " matches to: ", qid, " (by chunk match fraction")
+
+			s_matchcounts = quickselect(s_matchcounts, n_keep) // top n_keep matches, i
+			for z, mc := range s_matchcounts {
+				_ = z
+				id1 := sscs.Sequence_set.SeqIndex_id[mc.Index]
+				//	fmt.Printf("   %d %d  %d  %d %s %s  ", k, z, mc.MatchCount, mc.Index, mc.Id, id1)
+				idx1 := sscs.Sequence_set.SeqId_index[id1]
+				if idx1 != mc.Index {
+					fmt.Println("idx0,1: ", mc.Index, idx1, " should be equal. Bye.")
+					os.Exit(1)
+				}
+				//	id2 := sscs.Sequence_set.SeqIndex_id[]
+			}
+			//	fmt.Println("\n")
+			qs_matchcounts[k] = s_matchcounts
+		}
+	}
+	sss := sscs.Sequence_set
+	_ = sss.Check_seq_index_id_maps()
+	//q	fmt.Println("match count increment count: ", Match_count_increment_count)
+	return qs_matchcounts
 } /* */
