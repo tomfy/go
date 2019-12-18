@@ -39,6 +39,7 @@ type Index_matchcount struct {
 
 func Construct_multiple_from_sequence_sets(seq_sets []*sequenceset.Sequence_set, chunk_specs []chunk_spec, q bool, s bool) []*Sequence_chunk_set {
 	// concurrently construct a seqchunkset for each element of seq_sets
+	// seq_sets, chunk_specs
 	s_seqchunksets := make([]*Sequence_chunk_set, len(seq_sets))
 	var wg sync.WaitGroup
 
@@ -50,7 +51,9 @@ func Construct_multiple_from_sequence_sets(seq_sets []*sequenceset.Sequence_set,
 	return s_seqchunksets
 }
 
-func Construct_from_sequence_set_and_chunk_specs(sequence_set *sequenceset.Sequence_set, chunk_specs []chunk_spec, q bool, s bool, pp_seq_chunk_set **Sequence_chunk_set, wg *sync.WaitGroup) {
+func Construct_from_sequence_set_and_chunk_specs(sequence_set *sequenceset.Sequence_set, chunk_specs []chunk_spec, q bool, s bool,
+	// sequence_set, chunk_specs, q, s are read-only
+	pp_seq_chunk_set **Sequence_chunk_set, wg *sync.WaitGroup) {	
 	defer wg.Done()
 
 	seq_chunk_set := Construct_empty(sequence_set, chunk_specs)
@@ -60,11 +63,10 @@ func Construct_from_sequence_set_and_chunk_specs(sequence_set *sequenceset.Seque
 	}
 
 	*pp_seq_chunk_set = seq_chunk_set
-
 }
 
 func Construct_empty(sequence_set *sequenceset.Sequence_set, chunk_specs []chunk_spec) *Sequence_chunk_set {
-
+// args are read-only 
 	var seq_chunk_set Sequence_chunk_set
 	seq_chunk_set.Chunk_specs = chunk_specs                                   // Get_chunk_specs(sequence_set, chunk_size, n_chunks)
 	seq_chunk_set.Sequence_set = sequence_set                                 // sequenceset.Construct_empty()
@@ -75,12 +77,16 @@ func Construct_empty(sequence_set *sequenceset.Sequence_set, chunk_specs []chunk
 	return &seq_chunk_set
 }
 
-func (scs *Sequence_chunk_set) Add_next_sequence(q bool, s bool) { //
+func (scs *Sequence_chunk_set) Add_next_sequence(q bool, s bool) { // the whole Sequence_set is already there,
+	// but only scs.N_chunked_sequences have had their chunk sequences determined and stored.
+	// this func determines the chunk sequence for the next sequence and stores it
+	// in scs.Id__chsp_chseq (if q == true), and
+	// in scs.Chunk__seq_matchindices (if s == true)
 
-	new_index := scs.N_chunked_sequences // this is the number of sequences in the sequence_chunk_set so far
+	next_index := scs.N_chunked_sequences // this is the number of sequences in the sequence_chunk_set so far
 	seq_set := scs.Sequence_set
-	sequence := seq_set.Sequences[new_index]
-	new_id := seq_set.SeqIndex_id[new_index]
+	sequence := seq_set.Sequences[next_index]
+	next_id := seq_set.SeqIndex_id[next_index]
 	chsp_chseq := make(map[string]string)
 	scs.Missing_data_chunk_counts = append(scs.Missing_data_chunk_counts, 0)
 
@@ -92,7 +98,7 @@ func (scs *Sequence_chunk_set) Add_next_sequence(q bool, s bool) { //
 			seq_matchindices = make(map[string][]int)
 			scs.Chunk__seq_matchindices[css] = seq_matchindices
 		}
-		chunk_seq := get_chunk_seq(scs.Sequence_set.SnpId_index, sequence, csa, &scs.Missing_data_chunk_counts[new_index])
+		chunk_seq := get_chunk_seq(scs.Sequence_set.SnpId_index, sequence, csa, &scs.Missing_data_chunk_counts[next_index])
 		// have css (chunk-spec in str form) and chunk_seq
 		if q {
 			chsp_chseq[css] = chunk_seq
@@ -103,10 +109,10 @@ func (scs *Sequence_chunk_set) Add_next_sequence(q bool, s bool) { //
 				matchindices = make([]int, 0, 1)
 				scs.Chunk__seq_matchindices[css][chunk_seq] = matchindices
 			}
-			scs.Chunk__seq_matchindices[css][chunk_seq] = append(matchindices, new_index) // push the sequence index onto appropriate slice
+			scs.Chunk__seq_matchindices[css][chunk_seq] = append(matchindices, next_index) // push the sequence index onto appropriate slice
 		}
 	}
-	scs.Id__chsp_chseq[new_id] = chsp_chseq
+	scs.Id__chsp_chseq[next_id] = chsp_chseq
 	scs.N_chunked_sequences++
 }
 
