@@ -210,6 +210,7 @@ func main() {
 					s_seq := sss.Sequences[sidx2] // sss.Sequences[sss.SeqId_index[s_id]]
 					n00_22, n11, nd1, nd2 := sequenceset.Distance(q_seq, s_seq)
 					dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+					distance_calc_count++
 					top_matches[j] = mytypes.IdCmfDistance{s_id, matchinfo.ChunkMatchFraction, dist}
 				}
 				sort.Slice(top_matches,
