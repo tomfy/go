@@ -198,26 +198,25 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_qs(qscs *Sequence_chu
 		chunk_match_total_count += x.MatchCount
 		chunk_mdmd_total_count += chunk_mdmd_counts[i]
 
-		// store best ones in priority queue (but do in Search, not here)
-		//	id1 := qseq_id
-		//	id2 := x.Id
-		//	id2cmf := priorityqueue.IdCmf{Id: id2, Cmf: x.ChunkMatchFraction}
-		//	pq_capped_push(&cmfpq, id2cmf, n_top)
-		//	idcmf = priorityqueue.IdCmf{Id: id1, Cmf: x.ChunkMatchFraction}
-		//	pq_capped_push( (*qid_cmfpq)[id2], idcmf, 20) /* */
 	}
-	//	fmt.Println(chunk_match_total_count, chunk_mdmd_total_count)
-	//	fmt.Println("n_top: ", n_top, "  len(...): ", len(chunkwise_match_info_OK))
+
 	if n_top < len(chunkwise_match_info_OK) {
 		//	fmt.Fprintln(os.Stderr, "XXXXX")
 		chunkwise_match_info_OK = quickselect(chunkwise_match_info_OK, n_top) // top n_top matches, i
 	}
-	sort.Slice(chunkwise_match_info_OK, func(i, j int) bool {
-		return chunkwise_match_info_OK[i].ChunkMatchFraction > chunkwise_match_info_OK[j].ChunkMatchFraction
+	// copy to new slice with small underlying array, so memory of large array can be garbage collected 
+	top_chunkwise_match_info_OK := make([]*mytypes.MatchInfo, n_top)
+	for i, pmi := range chunkwise_match_info_OK {
+		mi_copy := *pmi
+		top_chunkwise_match_info_OK[i] = &mi_copy
+	}
+	
+	sort.Slice(top_chunkwise_match_info_OK, func(i, j int) bool {
+		return top_chunkwise_match_info_OK[i].ChunkMatchFraction > top_chunkwise_match_info_OK[j].ChunkMatchFraction
 	}) /* */
 	/* for _, match_info := range chunkwise_match_info {
 	   } /* */
-	return chunkwise_match_info_OK, chunkwise_match_info_BAD, chunk_match_total_count, chunk_mdmd_total_count
+	return top_chunkwise_match_info_OK, chunkwise_match_info_BAD, chunk_match_total_count, chunk_mdmd_total_count
 }
 
 // search for relatives of q_seq_set  in scs, and, optionally (if add == true) add seqs in q_seq_set to scs after search
@@ -243,9 +242,9 @@ func (scs *Sequence_chunk_set) Search_qs(qscs *Sequence_chunk_set, n_keep int) (
 
 			total_chunk_match_count += tcmc
 			total_mdmd_match_count += tmdmdc
-			if qindex%1000 == 0 {
+			/* if qindex%100 == 0 {
 				fmt.Fprintf(os.Stderr, "Search %d done.\n", qindex)
-			}
+			} /* */
 			qid_smatchinfos[qid] = top_smatchinfos
 			if len(bad_matches) > 0 {
 				qid_badmatches[qid] = bad_matches
@@ -451,7 +450,7 @@ func Get_chunk_specs(sequence_set *sequenceset.Sequence_set, chunk_size int, n_c
 	if n_chunks < 0 {
 		n_chunks = sequence_set.N_ok_snps / chunk_size //n_chunks_from_sequence // just do one pass through the set of sequences
 	}
-	fmt.Fprintf(os.Stderr, "N_ok_snps: %d %d\n", sequence_set.N_ok_snps, n_chunks)
+	fmt.Fprintf(os.Stderr, "# N Ok markers: %d %d\n", sequence_set.N_ok_snps, n_chunks)
 	for k := 0; true; k++ {
 		is := make([]int, sequence_set.N_ok_snps) // Sequence_length) // slice of integers
 		for j, _ := range is {

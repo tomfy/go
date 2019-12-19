@@ -71,13 +71,12 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	q_and_sfiles := strings.Split(files_string, ";") // split on ;
+	q_and_sfiles := strings.Split(files_string, ";") // split on semicolon
 
 	setup_time := int64(0)
 	q_setup_time := int64(0)
 	s_setup_time := int64(0)
 	search_time := int64(0)
-	search_time2 := int64(0)
 	distance_time := int64(0)
 	distance_calc_count := 0
 	t_start := time.Now()
@@ -102,23 +101,25 @@ func main() {
 
 			id_seqset := make(map[string]*sequenceset.Sequence_set)
 
-			// setup query Sequence_set and Sequence_chunk_set :
+			//**************  setup query Sequence_set and Sequence_chunk_set :
 			q_setup_start := time.Now()
 			q_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(qfile, n_cpus, max_missing_data_proportion, &id_seqset, q_seq_sets)
 			if n_chunks < 0 {
 				n_chunks = int(q_seq_sets[0].Sequence_length / chunk_size)
 			}
+			n_markers := len(q_seq_sets[0].Sequences[0])
+			fmt.Fprintln(os.Stderr, "# n markers: ", n_markers)
 			the_chunk_specs := seqchunkset.Get_chunk_specs(q_seq_sets[0], chunk_size, n_chunks)
 
 			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs, true, false) // chunk_size, n_chunks)
 			q_setup_time = int64(time.Now().Sub(q_setup_start))
 
-			// setup subj. Sequence_set and Sequence_chunk_set :
+			//***************  setup subj. Sequence_set and Sequence_chunk_set :
 			s_setup_start := time.Now()
 			s_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(sfile, n_cpus, max_missing_data_proportion, &id_seqset, s_seq_sets)
-			fmt.Fprintln(os.Stderr, "Subj. len(s_seq_sets): ", len(s_seq_sets))
+			//	fmt.Fprintln(os.Stderr, "Subj. len(s_seq_sets): ", len(s_seq_sets))
 
 			s_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(s_seq_sets, the_chunk_specs, false, true) // chunk_size, n_chunks)
 			s_setup_time = int64(time.Now().Sub(s_setup_start))
@@ -129,12 +130,12 @@ func main() {
 				chunk_size, n_chunks, n_keep, n_cpus, seed)
 
 			setup_time += int64(time.Now().Sub(t_start))
-			// end of setup
+			//***************  end of setup
 
 			cumulative_total_chunk_match_count := 0
 			cumulative_total_mdmd_match_count := 0
 
-			// do the chunkwise search for candidates
+			//****************  do the chunkwise search for candidates
 			var qid_allokmatches map[string][]*mytypes.MatchInfo
 			t_before := time.Now()
 			qid_allokmatches = make(map[string][]*mytypes.MatchInfo)
@@ -150,80 +151,38 @@ func main() {
 					go search(qscs, s_seqchunksets[k], n_keep, the_channel, &wg2)
 				}
 				wg2.Wait()
+				fmt.Fprintln(os.Stderr, "# Search with offset j: ", j, " done.")
 				close(the_channel)
 				wg1.Wait()
 			}
+
 			search_time += int64(time.Now().Sub(t_before))
-			// done with chunkwise (candidate) search
+			fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
+			//****************  done with chunkwise (candidate) search
 
 			fmt.Println("# n qids: ", len(qid_allokmatches))
-			// get full distances for top n_keep candidate matches to each query
+
+			//****************  do the distance calculations for the top n_keep candidates
 			t_before_dists := time.Now()
-			if way == 1 {
-				for qid, okmatches := range qid_allokmatches { // for each query there are n_cpus*n_keep candidates
-					sort.Slice(okmatches, func(i, j int) bool { // sort them
-						return okmatches[i].ChunkMatchFraction > okmatches[j].ChunkMatchFraction
-					}) /* */
-					//	fmt.Printf("# N top matches: %d   ", len(okmatches))
-					/*	fmt.Printf("%s  ", qid)
-						for _, okm := range okmatches {
-							fmt.Printf("%d %s %d %5.3f   ", okm.Index, okm.Id, okm.MatchCount, okm.ChunkMatchFraction)
-						}
-						fmt.Println("") /* */
+			channel_1 := make(chan []*mytypes.IdSeq)
+			channel_2 := make(chan []*mytypes.IdCmfDistance)
 
-					qss := id_seqset[qid]
-					//	_ = qss.Check_seq_index_id_maps()
-					q_seq := qss.Sequences[qss.SeqId_index[qid]]
-					top_matches := make([]mytypes.IdCmfDistance, n_keep)
-					fmt.Printf("%s  ", qid)
-					n_to_do := n_keep
-					if len(okmatches) < n_keep {
-						n_to_do = len(okmatches)
-					}
-					for j := 0; j < n_to_do; j++ { // calculate distance for the n_keep top candidates.
-						matchinfo := okmatches[j]
-						s_id := matchinfo.Id
-						sss := id_seqset[s_id] // get the relevant Sequence_set
-						//	_ = sss.Check_seq_index_id_maps()
-						//	sidx1 := sss.SeqId_index[s_id]
-						sidx2 := matchinfo.Index
-						//	sid2 := sss.SeqIndex_id[sidx2]
-						//	fmt.Println("  s id, index1,2, sid2: ", s_id, sidx1, sidx2, sid2)
-						s_seq := sss.Sequences[sidx2] // sss.Sequences[sss.SeqId_index[s_id]]
-						n00_22, n11, nd1, nd2 := sequenceset.Distance(q_seq, s_seq)
-						dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
-						distance_calc_count++
-						top_matches[j] = mytypes.IdCmfDistance{s_id, matchinfo.ChunkMatchFraction, dist}
-					}
-					sort.Slice(top_matches,
-						func(i, j int) bool {
-							return top_matches[i].Distance < top_matches[j].Distance
-						})
-					// output the best matches to stdout:1
-					for _, idcmfdist := range top_matches {
-						fmt.Printf("%s %6.5f %6.5f  ", idcmfdist.Id, idcmfdist.ChunkMatchFraction, idcmfdist.Distance)
-					}
-					fmt.Printf("\n")
-					//	t_before_dists := time.Now()
-					//	distance_calc_count += qss.Candidate_distances_qs(s_seqchunksets[k].Sequence_set, qid_okmatches, qid_matches)
-					distance_time += int64(time.Now().Sub(t_before_dists))
-				}
-			} else { // new way - concurrent distance calcs
-				//send_top_candidates(qid_matchinfos map[string][]*mytypes.MatchInfo, id_seqset map[string]*sequenceset.Sequence_set, n_keep int, ch chan []*mytypes.IdSeq) {
+			wg1.Add(1)
+			go send_top_candidates(qid_allokmatches, id_seqset, n_keep, &wg1, channel_1)
 
-				channel_1 := make(chan []*mytypes.IdSeq)
-				send_top_candidates(qid_allokmatches, id_seqset, n_keep, channel_1)
-
-				// channel_2 := make(chan ...
-				for { // loop until all distances calculated
-					for i := 0; i < n_cpus; i++ {
-						_ = i
-					//	calculate_distances(channel_1, channel_2)
-					}
-				}
+			for i := 0; i < n_cpus; i++ {
+				wg2.Add(1)
+				go calculate_distances(channel_1, channel_2, &wg2)
 			}
 
-			fmt.Fprintf(os.Stderr, "# All searches for candidates done.\n")
+			go output(channel_2)
+			wg1.Wait()
+			close(channel_1)
+			wg2.Wait()
+			close(channel_2)
+			distance_time = int64(time.Now().Sub(t_before_dists))
+			//***************  distance calculations done
+
 			fmt.Fprintf(os.Stderr, "# chunk match counts; neither md: %d, both md: %d\n",
 				cumulative_total_chunk_match_count, cumulative_total_mdmd_match_count)
 			fmt.Fprintln(os.Stderr, "# ", MemUsageString())
@@ -234,7 +193,6 @@ func main() {
 				cumulative_total_chunk_match_count, cumulative_total_mdmd_match_count)
 			fmt.Println(memstring)
 
-			// } // end loop over input files (data sets)
 		} else { // MODE 2
 			files := strings.Split(files_string, ",") // matrix files
 
@@ -306,21 +264,17 @@ func main() {
 
 			} // end loop over input files (data sets)
 			t_before := time.Now()
-			//	for _, data_set := range data_sets {
-			//		distance_calc_count +=
 			distance_calc_count += calculate_candidate_distances(id_seqset, qid_cmfpq) //, qid_matches)
-			//	}
-			distance_time = int64(time.Now().Sub(t_before)) /* */
+			distance_time = int64(time.Now().Sub(t_before))                            /* */
 		} // end mode 2
 	} // end loop over reps
 
 	tend := time.Now()
 	fmt.Printf("# total time for %d reps: %v\n", n_reps, tend.Sub(t_start))
 	fmt.Printf("# number of distances calculated: %d\n", distance_calc_count)
-	fmt.Printf("# setup time(q, s, total): %6.3f %6.3f %6.3f  search time: %6.3f  distance_time: %6.3f \n",
+	fmt.Printf("# setup time(total, q, s): %6.3f %6.3f %6.3f  search time: %6.3f  distance_time: %6.3f \n",
 		0.001*float64(setup_time/1000000), 0.001*float64(q_setup_time/1000000), 0.001*float64(s_setup_time/1000000),
 		0.001*float64(search_time/1000000), 0.001*float64(distance_time/1000000))
-	fmt.Printf("# search time 2: %10.3f \n", 0.001*float64(search_time2/1000000))
 }
 
 //
@@ -362,7 +316,7 @@ func calculate_candidate_distances(id_seqset map[string]*sequenceset.Sequence_se
 			return top_matches[i].Distance < top_matches[j].Distance
 		})
 		for _, x := range top_matches {
-			fmt.Printf("%s %5.3f %5.3f  ", x.Id, x.ChunkMatchFraction, x.Distance)
+			fmt.Printf("%s %5.3f %7.5f  ", x.Id, x.ChunkMatchFraction, x.Distance)
 		}
 		fmt.Println()
 	}
@@ -637,10 +591,11 @@ func search_x(qscs *seqchunkset.Sequence_chunk_set, sscs *seqchunkset.Sequence_c
 	ch <- x
 } /* */
 
-func send_top_candidates(qid_matchinfos map[string][]*mytypes.MatchInfo, id_seqset map[string]*sequenceset.Sequence_set, n_keep int,
+func send_top_candidates(qid_matchinfos map[string][]*mytypes.MatchInfo, id_seqset map[string]*sequenceset.Sequence_set, n_keep int, wg *sync.WaitGroup,
 	ch chan []*mytypes.IdSeq) {
+	defer wg.Done()
 	for q_id, okmatches := range qid_matchinfos { // for each query there are n_cpus*n_keep candidates
-		sort.Slice(okmatches, func(i, j int) bool { // sort them
+		sort.Slice(okmatches, func(i, j int) bool { // sort them by ChunkMatchFraction
 			return okmatches[i].ChunkMatchFraction > okmatches[j].ChunkMatchFraction
 		}) /* */
 
@@ -674,4 +629,50 @@ func send_top_candidates(qid_matchinfos map[string][]*mytypes.MatchInfo, id_seqs
 		}
 		ch <- ids_and_seqs
 	} // end loop over queries
+}
+
+// get the query id and seq, and the candidate match ids and seqs from channel, calculate distances
+// send them through a channel
+func calculate_distances(inch chan []*mytypes.IdSeq, outch chan []*mytypes.IdCmfDistance, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		q_and_matches, ok := <-inch
+		if !ok {
+			break
+		}
+		size := len(q_and_matches)
+		out := make([]*mytypes.IdCmfDistance, size)
+		query := q_and_matches[0]
+		qout := mytypes.IdCmfDistance{query.Id, -1, -1} // set Distance negative here to guarantee sort puts query in position 0
+		out[0] = &qout
+		for i := 1; i < len(q_and_matches); i++ {
+			subj := q_and_matches[i]
+			n00_22, n11, nd1, nd2 := sequenceset.Distance(query.Sequence, subj.Sequence)
+			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+			sout := mytypes.IdCmfDistance{subj.Id, -1, dist}
+			out[i] = &sout
+		}
+		sort.Slice(out, func(i, j int) bool { // sort them by ChunkMatchFraction
+			return out[i].Distance < out[j].Distance
+		}) /* */
+		out[0].Distance = 0 // now set it to 0
+		outch <- out
+	}
+}
+
+func output(ch chan []*mytypes.IdCmfDistance) {
+	/* for {
+	q_and_matches, ok := <-ch
+	if !ok {
+		break
+	} */
+	for q_and_matches := range ch {
+		query := q_and_matches[0]
+		fmt.Printf("%s  ", query.Id)
+		for i := 1; i < len(q_and_matches); i++ {
+			subj := q_and_matches[i]
+			fmt.Printf("%s %7.5f  ", subj.Id, subj.Distance)
+		}
+		fmt.Println("")
+	}
 }
