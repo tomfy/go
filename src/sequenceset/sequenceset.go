@@ -231,7 +231,6 @@ func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md
 		//   sort by amount of missing data
 		a_seq_set.Sorted_snp_ids, a_seq_set.N_ok_snps = keys_sorted_by_value(a_seq_set.SnpId_mdcount, a_seq_set.Max_md_count)
 
-		fmt.Fprintln(os.Stderr, "xxN_ok_snps: ", a_seq_set.N_ok_snps)
 		seq_sets[i] = &a_seq_set
 	}
 
@@ -365,7 +364,7 @@ func (set *Sequence_set) Seq_index_to_id(index int) string {
 func (set *Sequence_set) missing_data_counts() { // for the snp with id snp_id, count the number of sequences with missing data
 	//	fmt.Fprintf(os.Stderr, "nnn snps: %d\n", len(set.SnpId_index))
 	set.SnpId_mdcount = make(map[string]int)
-	fmt.Fprintln(os.Stderr, "len SnpId_index: ", len(set.SnpId_index))
+//	fmt.Fprintln(os.Stderr, "len SnpId_index: ", len(set.SnpId_index))
 	for snp_id, snp_idx := range set.SnpId_index {
 		set.SnpId_mdcount[snp_id] = 0
 		for _, seq := range set.Sequences { // loop over sequences
@@ -563,7 +562,7 @@ func keys_sorted_by_value(amap map[string]int, max_mds int) ([]string, int) {
 		}
 	}
 	sort.Slice(keys, func(i, j int) bool { return amap[keys[i]] < amap[keys[j]] })
-	fmt.Fprintf(os.Stderr, "max_mds %d  n_ok: %d \n", max_mds, n_ok)
+//	fmt.Fprintf(os.Stderr, "max_mds %d  n_ok: %d \n", max_mds, n_ok)
 	return keys, n_ok // the keys sorted by value (small to large), and the number of values <= max_mds
 }
 
