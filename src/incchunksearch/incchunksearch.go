@@ -107,36 +107,43 @@ func main() {
 			q_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(qfile, n_cpus, max_missing_data_proportion, &id_seqset, q_seq_sets)
 
+		
+			fmt.Fprintln(os.Stderr, "After constructing q sequence sets. Press 'enter' to continue.")
 			x, _ := reader.ReadString('\n')
-			fmt.Fprintln(os.Stderr, "x: ", x)
+			_ = x
+			
 			if n_chunks < 0 {
 				n_chunks = int(q_seq_sets[0].Sequence_length / chunk_size)
 			}
 			n_markers := len(q_seq_sets[0].Sequences[0])
 			fmt.Fprintln(os.Stderr, "# n markers: ", n_markers)
 			the_chunk_specs := seqchunkset.Get_chunk_specs(q_seq_sets[0], chunk_size, n_chunks)
+			fmt.Fprintln(os.Stderr, "After constructing chunk-specs. Press 'enter' to continue." )
 			x, _ = reader.ReadString('\n')
-			fmt.Fprintln(os.Stderr, "x: ", x)
+			
 
-			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs, true, false) // chunk_size, n_chunks)
+			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs, false, true) // chunk_size, n_chunks)
 			q_setup_time = int64(time.Now().Sub(q_setup_start))
 
+			
+		
+			fmt.Fprintln(os.Stderr, "After constructing q seqchunkset. Press 'enter' to continue: ")
 			x, _ = reader.ReadString('\n')
-			fmt.Fprintln(os.Stderr, "x: ", x)
 
 			//***************  setup subj. Sequence_set and Sequence_chunk_set :
 			s_setup_start := time.Now()
 			s_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(sfile, n_cpus, max_missing_data_proportion, &id_seqset, s_seq_sets)
 			//	fmt.Fprintln(os.Stderr, "Subj. len(s_seq_sets): ", len(s_seq_sets))
+		
+			fmt.Fprintln(os.Stderr, "After constructing subj. sequence set. Press 'enter' to continue.")
 			x, _ = reader.ReadString('\n')
-			fmt.Fprintln(os.Stderr, "x: ", x)
-
+			
 			s_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(s_seq_sets, the_chunk_specs, false, true) // chunk_size, n_chunks)
 			s_setup_time = int64(time.Now().Sub(s_setup_start))
-
+			fmt.Fprintln(os.Stderr, "After constructing subj. seqchunkset. Press 'enter' to continue.")
 			x, _ = reader.ReadString('\n')
-			fmt.Fprintln(os.Stderr, "x: ", x)
+			
 			fmt.Fprintf(os.Stderr, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
 				chunk_size, n_chunks, n_keep, n_cpus, seed)
 			fmt.Fprintf(os.Stdout, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
@@ -167,6 +174,8 @@ func main() {
 				fmt.Fprintln(os.Stderr, "# Search with offset j: ", j, " done.")
 				close(the_channel)
 				wg1.Wait()
+				fmt.Fprintln(os.Stderr, "After search with offset: ", j, ". Press 'enter' to continue.")
+				x, _ = reader.ReadString('\n')
 			}
 
 			search_time += int64(time.Now().Sub(t_before))
@@ -187,7 +196,8 @@ func main() {
 				wg2.Add(1)
 				go calculate_distances(channel_1, channel_2, &wg2)
 			}
-
+			fmt.Fprintln(os.Stderr, "After distance calculations. Press 'enter' to continue.")
+				x, _ = reader.ReadString('\n')
 			go output(channel_2)
 			wg1.Wait()
 			close(channel_1)

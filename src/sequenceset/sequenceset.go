@@ -8,12 +8,14 @@ import (
 	//	"sequence"
 	//	"math"
 	"math/rand"
-	"mytypes"
-	"priorityqueue"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+//	"time"
+	
+	"priorityqueue"
+	"mytypes"	
 	"etc"
 )
 
@@ -148,6 +150,9 @@ func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md
 	seq_index := 0
 	scanner := bufio.NewScanner(fh)
 	scanner.Buffer(make([]byte, 10000), 1000000) // th
+//	fmt.Fprintln(os.Stderr, "After making scanner.Buffer. Press 'enter' to continue: ")
+//	time.Sleep(10*time.Second)
+	
 	line_number := 0
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -161,7 +166,7 @@ func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md
 			for index, id := range marker_ids {
 				marker_id_index[id] = index
 				marker_index_id[index] = id
-			}
+			} 
 
 		} else {
 			seq_id := fields[0]
@@ -180,6 +185,10 @@ func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md
 		} /* */
 		line_number++
 	} // end of reading lines of file
+
+//	fmt.Fprintln(os.Stderr, "After reading sequences from file. Press 'enter' to continue: ")
+//	time.Sleep(10*time.Second)
+	
 	if min_seq_len != max_seq_len { // all sequence lengths must be the same, otherwise exit.
 		fmt.Printf("min, max sequence lengths: %8d %8d lengths not equal; exiting.\n", min_seq_len, max_seq_len)
 		os.Exit(1)
