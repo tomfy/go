@@ -30,6 +30,7 @@ var cpuprofile = flag.String("cpuprofile", "", "write cpy profile to file")
 
 func main() {
 
+	reader := bufio.NewReader(os.Stdin)
 	/* command line options: */
 
 	/* input file: */
@@ -93,7 +94,7 @@ func main() {
 			qfiles := strings.Split(q_and_sfiles[0], ",") // split on ,
 			sfiles := strings.Split(q_and_sfiles[1], ",") // split on ,
 			if len(qfiles) > 1 || len(sfiles) > 1 {
-				fmt.Fprintln(os.Stderr, "only 1 qfile and 1 sfile allowed; will analyze 1st qfile v 1st sfile.\n")
+				fmt.Fprintln(os.Stderr, "only 1 qfile and 1 sfile allowed; will analyze 1st qfile v 1st sfile.")
 				os.Exit(1)
 			}
 			qfile := qfiles[0]
@@ -105,25 +106,37 @@ func main() {
 			q_setup_start := time.Now()
 			q_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(qfile, n_cpus, max_missing_data_proportion, &id_seqset, q_seq_sets)
+
+			x, _ := reader.ReadString('\n')
+			fmt.Fprintln(os.Stderr, "x: ", x)
 			if n_chunks < 0 {
 				n_chunks = int(q_seq_sets[0].Sequence_length / chunk_size)
 			}
 			n_markers := len(q_seq_sets[0].Sequences[0])
 			fmt.Fprintln(os.Stderr, "# n markers: ", n_markers)
 			the_chunk_specs := seqchunkset.Get_chunk_specs(q_seq_sets[0], chunk_size, n_chunks)
+			x, _ = reader.ReadString('\n')
+			fmt.Fprintln(os.Stderr, "x: ", x)
 
 			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs, true, false) // chunk_size, n_chunks)
 			q_setup_time = int64(time.Now().Sub(q_setup_start))
+
+			x, _ = reader.ReadString('\n')
+			fmt.Fprintln(os.Stderr, "x: ", x)
 
 			//***************  setup subj. Sequence_set and Sequence_chunk_set :
 			s_setup_start := time.Now()
 			s_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(sfile, n_cpus, max_missing_data_proportion, &id_seqset, s_seq_sets)
 			//	fmt.Fprintln(os.Stderr, "Subj. len(s_seq_sets): ", len(s_seq_sets))
+			x, _ = reader.ReadString('\n')
+			fmt.Fprintln(os.Stderr, "x: ", x)
 
 			s_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(s_seq_sets, the_chunk_specs, false, true) // chunk_size, n_chunks)
 			s_setup_time = int64(time.Now().Sub(s_setup_start))
 
+			x, _ = reader.ReadString('\n')
+			fmt.Fprintln(os.Stderr, "x: ", x)
 			fmt.Fprintf(os.Stderr, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
 				chunk_size, n_chunks, n_keep, n_cpus, seed)
 			fmt.Fprintf(os.Stdout, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
