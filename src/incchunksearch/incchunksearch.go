@@ -42,7 +42,7 @@ func main() {
 	var seed int64
 	flag.IntVar(&n_cpus, "cpus", 1, "n cpus (number of cpus to use)")
 	flag.IntVar(&chunk_size, "size", 4, "number of snps in each chunk")
-	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use")
+	flag.IntVar(&n_chunks, "chunks", -1, "number of chunks to use") // default of -1  ->  each marker used once.
 	flag.IntVar(&way, "way", 1, "1: old way, other: new way.")
 	flag.IntVar(&n_keep, "keep", 20, "# of best matches to keep")
 	//	flag.IntVar(&way, "way", 1, "# 1 (default) old way, other: new way")
