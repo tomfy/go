@@ -105,11 +105,15 @@ func main() {
 			//**************  setup query Sequence_set and Sequence_chunk_set :
 			q_setup_start := time.Now()
 			q_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
+			
+fmt.Fprintln(os.Stderr, "Before constructing q sequence sets. Press 'enter' to continue.")
+			x, _ := reader.ReadString('\n')
+			
 			sequenceset.Construct_sets_from_matrix_file(qfile, n_cpus, max_missing_data_proportion, &id_seqset, q_seq_sets)
 
 		
 			fmt.Fprintln(os.Stderr, "After constructing q sequence sets. Press 'enter' to continue.")
-			x, _ := reader.ReadString('\n')
+			x, _ = reader.ReadString('\n')
 			_ = x
 			
 			if n_chunks < 0 {
@@ -196,7 +200,7 @@ func main() {
 				wg2.Add(1)
 				go calculate_distances(channel_1, channel_2, &wg2)
 			}
-			fmt.Fprintln(os.Stderr, "After distance calculations. Press 'enter' to continue.")
+			fmt.Fprintln(os.Stderr, "Distance calculations underway. Press 'enter' to continue.")
 				x, _ = reader.ReadString('\n')
 			go output(channel_2)
 			wg1.Wait()
@@ -204,6 +208,8 @@ func main() {
 			wg2.Wait()
 			close(channel_2)
 			distance_time = int64(time.Now().Sub(t_before_dists))
+				fmt.Fprintln(os.Stderr, "After distance calculations. Press 'enter' to continue.")
+				x, _ = reader.ReadString('\n')
 			//***************  distance calculations done
 
 			fmt.Fprintf(os.Stderr, "# chunk match counts; neither md: %d, both md: %d\n",
