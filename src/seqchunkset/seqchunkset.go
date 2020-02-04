@@ -140,8 +140,8 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_qs(qscs *Sequence_chu
 
 	chunk__seq_matchindices := scs.Chunk__seq_matchindices
 	for _, chsp := range scs.Chunk_specs { // loop over chunk specifiers
-		csa := chsp.a
-		css := chsp.s // scs.Chunk_spec_strings[ich]
+		csa := chsp.a //  chunk specifier as array
+		css := chsp.s //  chunk specifier as string   // scs.Chunk_spec_strings[ich]
 		chunk_seq := ""
 		if true {
 			chunk_seq = chsp_chseq[css]
