@@ -30,7 +30,7 @@ var cpuprofile = flag.String("cpuprofile", "", "write cpy profile to file")
 
 func main() {
 
-	reader := bufio.NewReader(os.Stdin)
+//	reader := bufio.NewReader(os.Stdin)
 	/* command line options: */
 
 	/* input file: */
@@ -39,6 +39,7 @@ func main() {
 
 	/* search control parameters */
 	var chunk_size, n_chunks, n_keep, n_reps, n_cpus, way int
+	var pauses bool
 	var seed int64
 	flag.IntVar(&n_cpus, "cpus", 1, "n cpus (number of cpus to use)")
 	flag.IntVar(&chunk_size, "size", 4, "number of snps in each chunk")
@@ -51,10 +52,11 @@ func main() {
 	var missing_data_prob, max_missing_data_proportion float64
 	flag.Float64Var(&missing_data_prob, "miss", -1, "# fraction missing data in genotypes")
 	flag.Float64Var(&max_missing_data_proportion, "max_md", 0.1, "# max proportion of missing data to use snp in chunk set")
+	flag.BoolVar(&pauses, "pause", false, "false: just run straight through, no pauses, true: pause at various points until enter.")
 	//	flag.IntVar(&save2, "save2", 0, "# if 1, save factor or 2 by only doing 1 direction.")
 
 	flag.Parse() // parse the command line
-
+//	fmt.Println(pauses)
 	// Seed the rng
 
 	if seed < 0 {
@@ -105,49 +107,38 @@ func main() {
 			//**************  setup query Sequence_set and Sequence_chunk_set :
 			q_setup_start := time.Now()
 			q_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
-			
-fmt.Fprintln(os.Stderr, "Before constructing q sequence sets. Press 'enter' to continue.")
-			x, _ := reader.ReadString('\n')
-			
+
+			WaitForEnter("Before constructing q sequence sets. Press 'enter' to continue.", pauses)
+
 			sequenceset.Construct_sets_from_matrix_file(qfile, n_cpus, max_missing_data_proportion, &id_seqset, q_seq_sets)
 
-		
-			fmt.Fprintln(os.Stderr, "After constructing q sequence sets. Press 'enter' to continue.")
-			x, _ = reader.ReadString('\n')
-			_ = x
-			
+			WaitForEnter("After constructing q sequence sets. Press 'enter' to continue.", pauses)
+
 			if n_chunks < 0 {
 				n_chunks = int(q_seq_sets[0].Sequence_length / chunk_size)
 			}
 			n_markers := len(q_seq_sets[0].Sequences[0])
 			fmt.Fprintln(os.Stderr, "# n markers: ", n_markers)
 			the_chunk_specs := seqchunkset.Get_chunk_specs(q_seq_sets[0], chunk_size, n_chunks)
-			fmt.Fprintln(os.Stderr, "After constructing chunk-specs. Press 'enter' to continue." )
-			x, _ = reader.ReadString('\n')
-			
 
-			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs, false, true) // chunk_size, n_chunks)
+			WaitForEnter("After constructing chunk-specs. Press 'enter' to continue.", pauses)
+
+			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs, true, false) // chunk_size, n_chunks) // this is the right way
 			q_setup_time = int64(time.Now().Sub(q_setup_start))
 
-			
-		
-			fmt.Fprintln(os.Stderr, "After constructing q seqchunkset. Press 'enter' to continue: ")
-			x, _ = reader.ReadString('\n')
+			WaitForEnter("After constructing q seqchunkset. Press 'enter' to continue.", pauses)
 
 			//***************  setup subj. Sequence_set and Sequence_chunk_set :
 			s_setup_start := time.Now()
 			s_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(sfile, n_cpus, max_missing_data_proportion, &id_seqset, s_seq_sets)
 			//	fmt.Fprintln(os.Stderr, "Subj. len(s_seq_sets): ", len(s_seq_sets))
-		
-			fmt.Fprintln(os.Stderr, "After constructing subj. sequence set. Press 'enter' to continue.")
-			x, _ = reader.ReadString('\n')
-			
+			WaitForEnter("After constructing s sequence sets. Press 'enter' to continue.", pauses)
 			s_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(s_seq_sets, the_chunk_specs, false, true) // chunk_size, n_chunks)
 			s_setup_time = int64(time.Now().Sub(s_setup_start))
-			fmt.Fprintln(os.Stderr, "After constructing subj. seqchunkset. Press 'enter' to continue.")
-			x, _ = reader.ReadString('\n')
-			
+
+			WaitForEnter("After constructing subj. seqchunkset. Press 'enter' to continue.", pauses)
+
 			fmt.Fprintf(os.Stderr, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
 				chunk_size, n_chunks, n_keep, n_cpus, seed)
 			fmt.Fprintf(os.Stdout, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
@@ -178,8 +169,8 @@ fmt.Fprintln(os.Stderr, "Before constructing q sequence sets. Press 'enter' to c
 				fmt.Fprintln(os.Stderr, "# Search with offset j: ", j, " done.")
 				close(the_channel)
 				wg1.Wait()
-				fmt.Fprintln(os.Stderr, "After search with offset: ", j, ". Press 'enter' to continue.")
-				x, _ = reader.ReadString('\n')
+				WaitForEnter("After search with offset. Press 'enter' to continue.", pauses)
+
 			}
 
 			search_time += int64(time.Now().Sub(t_before))
@@ -200,16 +191,16 @@ fmt.Fprintln(os.Stderr, "Before constructing q sequence sets. Press 'enter' to c
 				wg2.Add(1)
 				go calculate_distances(channel_1, channel_2, &wg2)
 			}
-			fmt.Fprintln(os.Stderr, "Distance calculations underway. Press 'enter' to continue.")
-				x, _ = reader.ReadString('\n')
+			WaitForEnter("Distance calculations underway. Press 'enter' to continue.", pauses)
+
 			go output(channel_2)
 			wg1.Wait()
 			close(channel_1)
 			wg2.Wait()
 			close(channel_2)
 			distance_time = int64(time.Now().Sub(t_before_dists))
-				fmt.Fprintln(os.Stderr, "After distance calculations. Press 'enter' to continue.")
-				x, _ = reader.ReadString('\n')
+			WaitForEnter("After distance calculations. Press 'enter' to continue.", pauses)
+
 			//***************  distance calculations done
 
 			fmt.Fprintf(os.Stderr, "# chunk match counts; neither md: %d, both md: %d\n",
@@ -389,6 +380,17 @@ func Initialize_priorityqueues(seq_set *sequenceset.Sequence_set, qid_cmfpq *map
 		pq := make(priorityqueue.PriorityQueue, 0)
 		heap.Init(&pq)
 		(*qid_cmfpq)[qid] = &pq
+	}
+}
+
+func WaitForEnter(message string, actually_wait bool) {
+	fmt.Fprintln(os.Stderr, "warning msg: ", message)
+	fmt.Fprintln(os.Stderr, "actually_wait:  ", actually_wait)
+	if actually_wait {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Fprintln(os.Stderr, message)
+		x, _ := reader.ReadString('\n')
+		_ = x
 	}
 }
 
