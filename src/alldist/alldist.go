@@ -12,6 +12,7 @@ import (
 	"runtime/pprof"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	//
 	//	"seqchunkset"
@@ -74,6 +75,7 @@ func main() {
 	var qfile, sfile, file string
 	var mode int
 	var idpair_dist map[string]map[string]float64
+	fmt.Fprintf(os.Stderr, "%s\n", files_string)
 	q_and_sfiles := strings.Split(files_string, ";") // split on ;
 	if len(q_and_sfiles) > 1 {                       // 'mode 1'
 		mode = 1
@@ -106,7 +108,7 @@ func main() {
 	//	distance_time := search_time
 
 	//	for _, file := range files {
-
+	var wg1 sync.WaitGroup
 	var sequence_set1, sequence_set2 *sequenceset.Sequence_set
 	if mode == 1 { // 1 query file and 1 subj. file
 		id_seqset := make(map[string]*sequenceset.Sequence_set)
@@ -114,8 +116,17 @@ func main() {
 			sequence_set1 = sequenceset.Construct_from_fasta_file(qfile, max_missing_data_proportion, missing_data_prob, &id_seqset)
 			sequence_set2 = sequenceset.Construct_from_fasta_file(sfile, max_missing_data_proportion, missing_data_prob, &id_seqset)
 		} else if input_format == "matrix" {
-			sequence_set1 = sequenceset.Construct_from_matrix_file(qfile, max_missing_data_proportion, &id_seqset)
-			sequence_set2 = sequenceset.Construct_from_matrix_file(sfile, max_missing_data_proportion, &id_seqset)
+			
+			q_sequence_set := &sequenceset.Sequence_set{}
+			wg1.Add(1)
+			sequenceset.Construct_from_matrix_file(qfile, max_missing_data_proportion, &id_seqset, q_sequence_set, &wg1)
+			sequence_set1 = q_sequence_set
+
+			s_sequence_set := &sequenceset.Sequence_set{}
+			wg1.Add(1)
+			sequenceset.Construct_from_matrix_file(sfile, max_missing_data_proportion, &id_seqset, s_sequence_set, &wg1)
+			sequence_set2 = s_sequence_set
+
 		}
 		fmt.Fprintln(os.Stderr, len(sequence_set1.Sequences), len(sequence_set2.Sequences))
 		idpair_dist = sequence_set1.Fraction_of_all_distances_AB(sequence_set2, dist_fraction)
@@ -124,7 +135,10 @@ func main() {
 		if input_format == "fasta" {
 			sequence_set1 = sequenceset.Construct_from_fasta_file(file, max_missing_data_proportion, missing_data_prob, &id_seqset)
 		} else if input_format == "matrix" {
-			sequence_set1 = sequenceset.Construct_from_matrix_file(file, max_missing_data_proportion, &id_seqset)
+				the_sequence_set := &sequenceset.Sequence_set{}
+			wg1.Add(1)
+			sequenceset.Construct_from_matrix_file(file, max_missing_data_proportion, &id_seqset, the_sequence_set, &wg1)
+			sequence_set1 = the_sequence_set
 		}
 		// sequence_set.Add_missing_data(missing_data_prob)
 		idpair_dist = sequence_set1.Fraction_of_all_distances_AA(dist_fraction)
