@@ -102,11 +102,11 @@ func main() {
 			qfile := qfiles[0]
 			sfile := sfiles[0]
 
-			id_seqset := make(map[string]*sequenceset.Sequence_set)
+			id_seqset := make(map[string]*sequenceset.Sequence_set) // keeps track of which seq set each seq id belongs to
 
 			//**************  setup query Sequence_set and Sequence_chunk_set :
 			q_setup_start := time.Now()
-			q_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
+			q_seq_sets := make([]*sequenceset.Sequence_set, n_cpus) // divide query seqs among n_cpus seq_sets
 
 			WaitForEnter("Before constructing q sequence sets. Press 'enter' to continue.", pauses)
 
@@ -384,8 +384,8 @@ func Initialize_priorityqueues(seq_set *sequenceset.Sequence_set, qid_cmfpq *map
 }
 
 func WaitForEnter(message string, actually_wait bool) {
-	fmt.Fprintln(os.Stderr, "warning msg: ", message)
-	fmt.Fprintln(os.Stderr, "actually_wait:  ", actually_wait)
+//	fmt.Fprintln(os.Stderr, "warning msg: ", message)
+//	fmt.Fprintln(os.Stderr, "actually_wait:  ", actually_wait)
 	if actually_wait {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Fprintln(os.Stderr, message)
