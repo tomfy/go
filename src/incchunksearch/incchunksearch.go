@@ -30,12 +30,12 @@ var cpuprofile = flag.String("cpuprofile", "", "write cpy profile to file")
 
 func main() {
 
-//	reader := bufio.NewReader(os.Stdin)
+	//	reader := bufio.NewReader(os.Stdin)
 	/* command line options: */
 
 	/* input file: */
 	var files_string string
-	flag.StringVar(&files_string, "f", "", "comma separated names of input fasta files.")
+	flag.StringVar(&files_string, "f", "", "two semi-colon separated filenames (query, subj.), or single filename")
 
 	/* search control parameters */
 	var chunk_size, n_chunks, n_keep, n_reps, n_cpus, way int
@@ -56,7 +56,7 @@ func main() {
 	//	flag.IntVar(&save2, "save2", 0, "# if 1, save factor or 2 by only doing 1 direction.")
 
 	flag.Parse() // parse the command line
-//	fmt.Println(pauses)
+	//	fmt.Println(pauses)
 	// Seed the rng
 
 	if seed < 0 {
@@ -95,7 +95,7 @@ func main() {
 		if len(q_and_sfiles) > 1 { // 'mode 1'
 			qfiles := strings.Split(q_and_sfiles[0], ",") // split on ,
 			sfiles := strings.Split(q_and_sfiles[1], ",") // split on ,
-			if len(qfiles) > 1 || len(sfiles) > 1 {
+			if len(qfiles) > 1 || len(sfiles) > 1 {       // multiple query files not implemented; multiple subj files not implemented.
 				fmt.Fprintln(os.Stderr, "only 1 qfile and 1 sfile allowed; will analyze 1st qfile v 1st sfile.")
 				os.Exit(1)
 			}
@@ -104,36 +104,19 @@ func main() {
 
 			id_seqset := make(map[string]*sequenceset.Sequence_set) // keeps track of which seq set each seq id belongs to
 
-			//**************  setup query Sequence_set and Sequence_chunk_set :
-			q_setup_start := time.Now()
-			q_seq_sets := make([]*sequenceset.Sequence_set, n_cpus) // divide query seqs among n_cpus seq_sets
-
-			WaitForEnter("Before constructing q sequence sets. Press 'enter' to continue.", pauses)
-
-			sequenceset.Construct_sets_from_matrix_file(qfile, n_cpus, max_missing_data_proportion, &id_seqset, q_seq_sets)
-
-			WaitForEnter("After constructing q sequence sets. Press 'enter' to continue.", pauses)
-
-			if n_chunks < 0 {
-				n_chunks = int(q_seq_sets[0].Sequence_length / chunk_size)
-			}
-			n_markers := len(q_seq_sets[0].Sequences[0])
-			fmt.Fprintln(os.Stderr, "# n markers: ", n_markers)
-			the_chunk_specs := seqchunkset.Get_chunk_specs(q_seq_sets[0], chunk_size, n_chunks)
-
-			WaitForEnter("After constructing chunk-specs. Press 'enter' to continue.", pauses)
-
-			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs, true, false) // chunk_size, n_chunks) // this is the right way
-			q_setup_time = int64(time.Now().Sub(q_setup_start))
-
-			WaitForEnter("After constructing q seqchunkset. Press 'enter' to continue.", pauses)
-
 			//***************  setup subj. Sequence_set and Sequence_chunk_set :
 			s_setup_start := time.Now()
 			s_seq_sets := make([]*sequenceset.Sequence_set, n_cpus)
 			sequenceset.Construct_sets_from_matrix_file(sfile, n_cpus, max_missing_data_proportion, &id_seqset, s_seq_sets)
 			//	fmt.Fprintln(os.Stderr, "Subj. len(s_seq_sets): ", len(s_seq_sets))
 			WaitForEnter("After constructing s sequence sets. Press 'enter' to continue.", pauses)
+			if n_chunks < 0 {
+				n_chunks = int(s_seq_sets[0].Sequence_length / chunk_size)
+			}
+			n_markers := len(s_seq_sets[0].Sequences[0])
+			fmt.Fprintln(os.Stderr, "# n markers: ", n_markers)
+			the_chunk_specs := seqchunkset.Get_chunk_specs(s_seq_sets[0], chunk_size, n_chunks)
+			WaitForEnter("After constructing chunk-specs. Press 'enter' to continue.", pauses)
 			s_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(s_seq_sets, the_chunk_specs, false, true) // chunk_size, n_chunks)
 			s_setup_time = int64(time.Now().Sub(s_setup_start))
 
@@ -144,7 +127,18 @@ func main() {
 			fmt.Fprintf(os.Stdout, "# chunk_size: %d  n_chunks: %d  n_keep: %d  n_cpus: %d  seed: %d\n",
 				chunk_size, n_chunks, n_keep, n_cpus, seed)
 
+			//**************  setup query Sequence_set and Sequence_chunk_set :
+			q_setup_start := time.Now()
+			q_seq_sets := make([]*sequenceset.Sequence_set, n_cpus) // divide query seqs among n_cpus seq_sets
+
+			sequenceset.Construct_sets_from_matrix_file(qfile, n_cpus, max_missing_data_proportion, &id_seqset, q_seq_sets)
+			WaitForEnter("After constructing q sequence sets. Press 'enter' to continue.", pauses)
+
+			q_seqchunksets := seqchunkset.Construct_multiple_from_sequence_sets(q_seq_sets, the_chunk_specs, true, false) // chunk_size, n_chunks) // this is the right way
+			q_setup_time = int64(time.Now().Sub(q_setup_start))
 			setup_time += int64(time.Now().Sub(t_start))
+			WaitForEnter("After constructing q seqchunkset. Press 'enter' to continue.", pauses)
+
 			//***************  end of setup
 
 			cumulative_total_chunk_match_count := 0
@@ -158,7 +152,7 @@ func main() {
 
 				the_channel := make(chan map[string][]*mytypes.MatchInfo)
 				wg1.Add(1)
-				go store_matches(the_channel, qid_allokmatches, &wg1)
+				go store_matches(the_channel, qid_allokmatches, &wg1) // receive from the_channel
 
 				for i, qscs := range q_seqchunksets {
 					k := (i + j) % n_cpus
@@ -384,8 +378,8 @@ func Initialize_priorityqueues(seq_set *sequenceset.Sequence_set, qid_cmfpq *map
 }
 
 func WaitForEnter(message string, actually_wait bool) {
-//	fmt.Fprintln(os.Stderr, "warning msg: ", message)
-//	fmt.Fprintln(os.Stderr, "actually_wait:  ", actually_wait)
+	//	fmt.Fprintln(os.Stderr, "warning msg: ", message)
+	//	fmt.Fprintln(os.Stderr, "actually_wait:  ", actually_wait)
 	if actually_wait {
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Fprintln(os.Stderr, message)
@@ -546,7 +540,7 @@ func MemUsageString() string {
 func store_matches(ch chan map[string][]*mytypes.MatchInfo, qid_allokmatches map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
-		qid_okmatches, ok := <-ch // ok will be falst iff channel is empty and closed.
+		qid_okmatches, ok := <-ch // ok will be false iff channel is empty and closed.
 		if ok {
 			for qid, okmatches := range qid_okmatches {
 				//	fmt.Fprintln(os.Stderr, "type of: ", reflect.TypeOf(okmatches))
@@ -564,6 +558,7 @@ func store_matches(ch chan map[string][]*mytypes.MatchInfo, qid_allokmatches map
 
 }
 
+// get the top n_keep matches to each q seq
 func search(qscs *seqchunkset.Sequence_chunk_set, scs *seqchunkset.Sequence_chunk_set, n_keep int, ch chan map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
 	defer wg.Done()
 	qid_okmatches, qid_badmatches, total_chunk_match_count, total_mdmd_match_count :=
@@ -577,50 +572,7 @@ func search(qscs *seqchunkset.Sequence_chunk_set, scs *seqchunkset.Sequence_chun
 	}
 }
 
-/* func store_matches_x(ch chan sequenceset.QsetSsetQSmi, qid_matchinfos map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for {
-		qsqsmi, ok := <-ch // ok will be false iff channel is empty and closed.
-		if ok {
-			qset := qsqsmi.Qss
-			sset := qsqsmi.Sss
-			for qi, s_mi := range qsqsmi.Qs_mi { // s_mi slice of pointers to MatchInfo
-				//	fmt.Fprintln(os.Stderr, "type of: ", reflect.TypeOf(okmatches))
 
-				qid := qset.SeqIndex_id[qi]
-
-				minfos, ok := qid_matchinfos[qid]
-				if ok { // we already have some matches to this query id
-					//	new_minfos := make([]mytypes.MatchInfo, len(s_mi))
-					for si, minfo := range s_mi {
-						sid := sset.SeqIndex_id[si]
-						minfo.Id = sid
-						//	new_minfos[si] = minfo
-						qid_matchinfos[qid] = append(minfos, minfo)
-					}
-					//	qid_matchinfos[qid] = append(minfos, new_minfos)
-				} else { // no matches yet to this query id, because this is the first set of subjs done.
-					for si, minfo := range s_mi {
-						sid := sset.SeqIndex_id[si]
-						minfo.Id = sid
-						//	new_minfos[si] = minfo
-					}
-					qid_matchinfos[qid] = s_mi
-
-				}
-			}
-		} else { // channel is empty and closed.
-			return
-		}
-	}
-	return
-}
-func search_x(qscs *seqchunkset.Sequence_chunk_set, sscs *seqchunkset.Sequence_chunk_set, n_keep int, ch chan sequenceset.QsetSsetQSmi, wg *sync.WaitGroup) {
-	defer wg.Done()
-	qs_matchinfos := sscs.Search_qs_x(qscs, n_keep)
-	x := sequenceset.QsetSsetQSmi{qscs.Sequence_set, sscs.Sequence_set, qs_matchinfos}
-	ch <- x
-} /* */
 
 func send_top_candidates(qid_matchinfos map[string][]*mytypes.MatchInfo, id_seqset map[string]*sequenceset.Sequence_set, n_keep int, wg *sync.WaitGroup,
 	ch chan []*mytypes.IdSeq) {
@@ -707,3 +659,53 @@ func output(ch chan []*mytypes.IdCmfDistance) {
 		fmt.Println("")
 	}
 }
+
+
+// **********************************************************************************************************************
+
+
+
+/* func store_matches_x(ch chan sequenceset.QsetSsetQSmi, qid_matchinfos map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		qsqsmi, ok := <-ch // ok will be false iff channel is empty and closed.
+		if ok {
+			qset := qsqsmi.Qss
+			sset := qsqsmi.Sss
+			for qi, s_mi := range qsqsmi.Qs_mi { // s_mi slice of pointers to MatchInfo
+				//	fmt.Fprintln(os.Stderr, "type of: ", reflect.TypeOf(okmatches))
+
+				qid := qset.SeqIndex_id[qi]
+
+				minfos, ok := qid_matchinfos[qid]
+				if ok { // we already have some matches to this query id
+					//	new_minfos := make([]mytypes.MatchInfo, len(s_mi))
+					for si, minfo := range s_mi {
+						sid := sset.SeqIndex_id[si]
+						minfo.Id = sid
+						//	new_minfos[si] = minfo
+						qid_matchinfos[qid] = append(minfos, minfo)
+					}
+					//	qid_matchinfos[qid] = append(minfos, new_minfos)
+				} else { // no matches yet to this query id, because this is the first set of subjs done.
+					for si, minfo := range s_mi {
+						sid := sset.SeqIndex_id[si]
+						minfo.Id = sid
+						//	new_minfos[si] = minfo
+					}
+					qid_matchinfos[qid] = s_mi
+
+				}
+			}
+		} else { // channel is empty and closed.
+			return
+		}
+	}
+	return
+}
+func search_x(qscs *seqchunkset.Sequence_chunk_set, sscs *seqchunkset.Sequence_chunk_set, n_keep int, ch chan sequenceset.QsetSsetQSmi, wg *sync.WaitGroup) {
+	defer wg.Done()
+	qs_matchinfos := sscs.Search_qs_x(qscs, n_keep)
+	x := sequenceset.QsetSsetQSmi{qscs.Sequence_set, sscs.Sequence_set, qs_matchinfos}
+	ch <- x
+} /* */
