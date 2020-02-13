@@ -38,7 +38,7 @@ func main() {
 	var top int
 	flag.Int64Var(&seed, "seed", -1, "# rng seed (default: set from clock.)")
 	flag.Float64Var(&dist_fraction, "dfrac", 1, "# fraction of all N choose 2 distances to do.")
-	flag.IntVar(&top, "top", -1, "# output this many closest relatives to each.")
+	flag.IntVar(&top, "top", 20, "# output this many closest relatives to each.")
 
 	max_missing_data_proportion := 0.1
 	missing_data_prob := 0.0
