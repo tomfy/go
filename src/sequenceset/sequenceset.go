@@ -33,11 +33,11 @@ type Sequence_set struct {
 
 }
 
-type QsetSsetQSmi struct {
+/* type QsetSsetQSmi struct {
 	Qss   *Sequence_set
 	Sss   *Sequence_set
 	Qs_mi [][]*mytypes.MatchInfo
-}
+} */
 
 func Construct_from_matrix_file(filename string, max_md_prop float64, id_seqset *map[string]*Sequence_set,
 	seq_set *Sequence_set, waitgroup *sync.WaitGroup) {
