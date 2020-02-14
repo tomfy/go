@@ -203,7 +203,7 @@ func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md
 	n_seqs_used_so_far := 0
 	for i := 0; i < n_sets_to_make; i++ {
 		a_seq_set := Sequence_set{}
-		set_size := etc.MinInt(n_seqs_in_each_set, n_sequences-n_seqs_used_so_far)
+		set_size := etc.MinInt(n_seqs_in_each_set, n_sequences-n_seqs_used_so_far) // can't be more than the number not used so far.
 
 		set_seq_id_index := make(map[string]int)
 		set_seq_index_id := make(map[int]string)
