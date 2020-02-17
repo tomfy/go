@@ -372,8 +372,9 @@ func (scs *Sequence_chunk_set) Search_pq(q_seq_set *sequenceset.Sequence_set, n_
 			os.Exit(1)
 		}
 		if true { // search against the previously read-in sequences
-			top_smatchinfos, bad_matches, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts_pq(qid, qseq, n_keep) //, qid_cmfpq)
-			for _, mtchinfo := range top_smatchinfos {
+			smatchinfos, bad_matches, tcmc, tmdmdc := scs.Get_chunk_matchindex_counts_pq(qid, qseq, n_keep) //, qid_cmfpq)
+		//	fmt.Fprintln(os.Stderr, len(smatchinfos))
+			for _, mtchinfo := range smatchinfos {
 
 				id2 := mtchinfo.Id
 
@@ -401,7 +402,7 @@ func (scs *Sequence_chunk_set) Search_pq(q_seq_set *sequenceset.Sequence_set, n_
 			if qindex%1000 == 0 {
 				fmt.Fprintf(os.Stderr, "Search %d done.\n", qindex)
 			}
-			qid_smatchinfos[qid] = top_smatchinfos
+			qid_smatchinfos[qid] = smatchinfos
 			if len(bad_matches) > 0 {
 				qid_badmatches[qid] = bad_matches
 			}
