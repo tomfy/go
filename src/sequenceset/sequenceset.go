@@ -490,8 +490,8 @@ func keys_sorted_by_value(amap map[string]int, max_mds int) ([]string, int) {
 
 func Distance(seq1 string, seq2 string) (int, int, int, int) {
 	//	zero_count := 0
-	one_count := 0
-	two_count := 0
+	one_count := 0 // 0 <-> 1, 1 <-> 2
+	two_count := 0 // 0 <-> 2
 	n00_22 := 0 // homozygous, no change, i.e. 0->0 or 2->2
 	n11 := 0    // heterozygous, no change, i.e. 1 -> 1
 	// n02 := 0 // same as two_count

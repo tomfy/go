@@ -190,7 +190,7 @@ func main() {
 
 			fmt.Printf("# chunk match counts; neither md: %d, both md: %d\n",
 				cumulative_total_chunk_match_count, cumulative_total_mdmd_match_count)
-			fmt.Println("# ", MemUsageString)
+			fmt.Println("# ", MemUsageString())
 
 			fmt.Printf("# setup time(total, s, q): %6.3f %6.3f %6.3f  search time: %6.3f  distance_time: %6.3f \n",
 				0.001*float64(setup_time/1000000), 0.001*float64(s_setup_time/1000000), 0.001*float64(q_setup_time/1000000),
