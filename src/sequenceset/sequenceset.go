@@ -3,17 +3,17 @@ package sequenceset
 import (
 	"bufio"
 	"fmt"
+	"math/rand"
 	"os"
 	"regexp"
-	"math/rand"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	
-	"priorityqueue"
-	"mytypes"	
+
 	"etc"
+	"mytypes"
+	"priorityqueue"
 )
 
 type Sequence_set struct {
@@ -34,7 +34,7 @@ func Construct_from_matrix_file(filename string, max_md_prop float64, id_seqset 
 	seq_set *Sequence_set, waitgroup *sync.WaitGroup) {
 
 	defer waitgroup.Done()
-	
+
 	fh, err := os.Open(filename)
 	if err != nil {
 		os.Exit(1)
@@ -58,7 +58,7 @@ func Construct_from_matrix_file(filename string, max_md_prop float64, id_seqset 
 	for scanner.Scan() {
 		line := scanner.Text()
 		fields := strings.Fields(line) // split on one or more whitespace chars.
-		if line_number == 0 { // this line should have MARKER and then marker ids (tab separated)
+		if line_number == 0 {          // this line should have MARKER and then marker ids (tab separated)
 			if fields[0] != "MARKER" {
 				os.Exit(1)
 			}
@@ -130,12 +130,12 @@ func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md
 	seq_index := 0
 	scanner := bufio.NewScanner(fh)
 	scanner.Buffer(make([]byte, 10000), 1000000) // th
-	
+
 	line_number := 0
 	for scanner.Scan() {
 		line := scanner.Text()
 		fields := strings.Fields(line) // split on one or more whitespace chars.
-		if line_number == 0 { // this line should have MARKER and then marker ids (tab separated)
+		if line_number == 0 {          // this line should have MARKER and then marker ids (tab separated)
 			if fields[0] != "MARKER" {
 				os.Exit(1)
 			}
@@ -143,7 +143,7 @@ func Construct_sets_from_matrix_file(filename string, n_sets_to_make int, max_md
 			for index, id := range marker_ids {
 				marker_id_index[id] = index
 				marker_index_id[index] = id
-			} 
+			}
 
 		} else {
 			seq_id := fields[0]
@@ -492,8 +492,8 @@ func Distance(seq1 string, seq2 string) (int, int, int, int) {
 	//	zero_count := 0
 	one_count := 0 // 0 <-> 1, 1 <-> 2
 	two_count := 0 // 0 <-> 2
-	n00_22 := 0 // homozygous, no change, i.e. 0->0 or 2->2
-	n11 := 0    // heterozygous, no change, i.e. 1 -> 1
+	n00_22 := 0    // homozygous, no change, i.e. 0->0 or 2->2
+	n11 := 0       // heterozygous, no change, i.e. 1 -> 1
 	// n02 := 0 // same as two_count
 	// n01_12 := 0 // same as one_count
 	for i := 0; i < len(seq1); i++ {
@@ -552,7 +552,7 @@ func (seq_set *Sequence_set) Check_seq_index_id_maps() bool {
 	for id, idx := range seq_set.SeqId_index {
 		id2 := seq_set.SeqIndex_id[idx]
 		if id2 != id {
-	fmt.Println("seq set index/id inconsistency. id, id2: ", id, id2)
+			fmt.Println("seq set index/id inconsistency. id, id2: ", id, id2)
 			os.Exit(1)
 		}
 	}
