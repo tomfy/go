@@ -172,24 +172,27 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_qs(qscs *Sequence_chu
 			}
 		}
 	}
-	chunk_match_total_count := 0 // matches, md in neither, summed over all chunks and all subj. sequences
-	chunk_mdmd_total_count := 0  //  'matches' md in both, summed over all chunks and all subj. sequences
+	chunk_match_total_count := 0                              // matches, md in neither, summed over all chunks and all subj. sequences
+	chunk_mdmd_total_count := 0                               //  'matches' md in both, summed over all chunks and all subj. sequences
 	chunkwise_match_info_OK := make([]*mytypes.MatchInfo, 0)  //
 	chunkwise_match_info_BAD := make([]*mytypes.MatchInfo, 0) // these have zero OK chunks (i.e. all chunks have md in at least one of the two sequences)
-	for i, cmi := range chunkwise_match_info {                  // O(N^2)
-		index := cmi.Index                             // index of subj. sequence
-		TestEqual(i, index)                          // exit if not equal
+	for i, cmi := range chunkwise_match_info {                // O(N^2)
+		index := cmi.Index                               // index of subj. sequence
+		TestEqual(i, index)                              // exit if not equal
 		cmi.Id = scs.Sequence_set.SeqIndex_id[cmi.Index] // set the id in the MatchInfo struct.
-		cmi.OkChunkCount -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
-		if cmi.OkChunkCount <= 0 { // for now, 'BAD' criterion is that there are no chunks with OK data (no md) in both query and subj.
-			chunkwise_match_info_BAD = append(chunkwise_match_info_BAD, cmi)
-		} else {
-			cmi.ChunkMatchFraction = float64(cmi.MatchCount) / float64(cmi.OkChunkCount) // will sort on this. (fraction of OK chunks which match)
-			chunkwise_match_info_OK = append(chunkwise_match_info_OK, cmi)
-		}
-		chunk_match_total_count += cmi.MatchCount
-		chunk_mdmd_total_count += chunk_mdmd_counts[i]
+		if cmi.Id == qid {                               // qid and subj id equal; skip
 
+		} else {
+			cmi.OkChunkCount -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
+			if cmi.OkChunkCount <= 0 {                                           // for now, 'BAD' criterion is that there are no chunks with OK data (no md) in both query and subj.
+				chunkwise_match_info_BAD = append(chunkwise_match_info_BAD, cmi)
+			} else {
+				cmi.ChunkMatchFraction = float64(cmi.MatchCount) / float64(cmi.OkChunkCount) // will sort on this. (fraction of OK chunks which match)
+				chunkwise_match_info_OK = append(chunkwise_match_info_OK, cmi)
+			}
+			chunk_match_total_count += cmi.MatchCount
+			chunk_mdmd_total_count += chunk_mdmd_counts[i]
+		}
 	}
 
 	if n_top < len(chunkwise_match_info_OK) {
@@ -285,16 +288,16 @@ func (scs *Sequence_chunk_set) Get_chunk_matchindex_counts_pq(qseq_id string, se
 			}
 		}
 	}
-	chunk_match_total_count := 0 // matches, md in neither, summed over all chunks and all subj. sequences
-	chunk_mdmd_total_count := 0  //  'matches' md in both, summed over all chunks and all subj. sequences
+	chunk_match_total_count := 0                              // matches, md in neither, summed over all chunks and all subj. sequences
+	chunk_mdmd_total_count := 0                               //  'matches' md in both, summed over all chunks and all subj. sequences
 	chunkwise_match_info_OK := make([]*mytypes.MatchInfo, 0)  //
 	chunkwise_match_info_BAD := make([]*mytypes.MatchInfo, 0) // these have zero OK chunks (i.e. all chunks have md in at least one of the two sequences)
-	for i, cmi := range chunkwise_match_info {                  // O(N^2)
-		index := cmi.Index                             // index of subj. sequence
-		TestEqual(i, index)                          // exit if not equal
-		cmi.Id = scs.Sequence_set.SeqIndex_id[cmi.Index] // set the id in the MatchInfo struct.
+	for i, cmi := range chunkwise_match_info {                // O(N^2)
+		index := cmi.Index                                                   // index of subj. sequence
+		TestEqual(i, index)                                                  // exit if not equal
+		cmi.Id = scs.Sequence_set.SeqIndex_id[cmi.Index]                     // set the id in the MatchInfo struct.
 		cmi.OkChunkCount -= (seq2_chunk_md_count - chunk_mdmd_counts[index]) // the number of chunks with OK data in both query and subj. seqs
-		if cmi.OkChunkCount <= 0 { // for now, 'BAD' criterion is that there are no chunks with OK data (no md) in both query and subj.
+		if cmi.OkChunkCount <= 0 {                                           // for now, 'BAD' criterion is that there are no chunks with OK data (no md) in both query and subj.
 			chunkwise_match_info_BAD = append(chunkwise_match_info_BAD, cmi)
 		} else {
 			cmi.ChunkMatchFraction = float64(cmi.MatchCount) / float64(cmi.OkChunkCount) // will sort on this. (fraction of OK chunks which match)
