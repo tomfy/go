@@ -83,7 +83,7 @@ func main() {
 		t_start = time.Now()
 		// can either do 1st file vs all others (just get best matches to sequences in first file) (mode 1)
 		// or do all v all, getting best matches to every sequence (mode 2)
-		if len(q_and_sfiles) > 1 { // 'mode 1'
+		if len(q_and_sfiles) > 1 { // 'mode 1' two input filenames (may be the same file)
 			qfiles := strings.Split(q_and_sfiles[0], ",") // split on ,
 			sfiles := strings.Split(q_and_sfiles[1], ",") // split on ,
 			if len(qfiles) > 1 || len(sfiles) > 1 {       // multiple query files not implemented; multiple subj files not implemented.
@@ -196,7 +196,7 @@ func main() {
 				0.001*float64(setup_time/1000000), 0.001*float64(s_setup_time/1000000), 0.001*float64(q_setup_time/1000000),
 				0.001*float64(search_time/1000000), 0.001*float64(distance_time/1000000))
 
-		} else { // MODE 2
+		} else { // MODE 2. One filename; compare file to itself.
 
 			// set up sequence sets, chunk specs, and priority queues
 			setup_start := time.Now()
@@ -406,8 +406,6 @@ func MemUsageString() string {
 	return result
 }
 
-
-
 func store_matches(ch chan map[string][]*mytypes.MatchInfo, qid_allokmatches map[string][]*mytypes.MatchInfo, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
@@ -483,7 +481,6 @@ func send_top_candidates(qid_matchinfos map[string][]*mytypes.MatchInfo, id_seqs
 	} // end loop over queries
 }
 
-
 func output(ch chan []*mytypes.IdCmfDistance) {
 	/* for {
 	q_and_matches, ok := <-ch
@@ -547,7 +544,6 @@ func search_x(qscs *seqchunkset.Sequence_chunk_set, sscs *seqchunkset.Sequence_c
 	x := sequenceset.QsetSsetQSmi{qscs.Sequence_set, sscs.Sequence_set, qs_matchinfos}
 	ch <- x
 } /* */
-
 
 /* func distance_old(seq1 string, seq2 string) float64 {
 	zero_count := 0
