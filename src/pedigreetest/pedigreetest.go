@@ -7,20 +7,29 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
+//	"math/rand"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
-	"time"
+//	"time"
 
 	"mytypes"
 	"priorityqueue"
 	"seqchunkset"
 	"sequenceset"
 )
+
+type Pedigree_info struct {
+	Mat_id             string
+	Am_dist            float64
+	Pat_id             string
+	Ap_dist            float64
+	Amp_pedigree_score float64
+}
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
@@ -39,14 +48,16 @@ func main() {
 	flag.StringVar(&gt_matrix_file, "gts", "", "filename of matrix-format genotypes file (rows: accessions, columns: markers)")
 	flag.StringVar(&rel_file, "rels", "", "filename of close relatives file.")
 	flag.StringVar(&ped_file, "peds", "", "filename of pedigree file.")
+	
 	/* search control parameters */
-	var n_keep, n_cpus int
+	var n_close_rels_to_check  int
 	//	var pauses bool
-	var seed int64
+//	var seed int64
 	max_md_prop := 0.0
-	flag.IntVar(&n_cpus, "cpus", 1, "Number of cpus to use.")
-	flag.IntVar(&n_keep, "keep", 20, "Number of best matches to keep.")
-	flag.Int64Var(&seed, "seed", -1, "Rng seed (default: set from clock.)")
+//	flag.IntVar(&n_cpus, "cpus", 1, "Number of cpus to use.")
+//	flag.IntVar(&n_keep, "keep", 20, "Number of best matches to keep.")
+//	flag.Int64Var(&seed, "seed", -1, "Rng seed (default: set from clock.)")
+	flag.IntVar(&n_close_rels_to_check, "nrels", 5, "Number of closest distance rels. to check as parents (default: 5)")
 	/*	flag.IntVar(&n_reps, "reps", 1, "Number of times to repeat the whole search with different random chunk sets.")
 		var missing_data_prob, max_missing_data_proportion float64
 		flag.Float64Var(&missing_data_prob, "miss", -1, "Proportion missing data to add to genotypes.")
@@ -57,10 +68,7 @@ func main() {
 
 	fmt.Fprintf(os.Stderr, "%s %s %s\n", gt_matrix_file, ped_file, rel_file)
 	// Seed the rng
-	if seed < 0 {
-		seed = int64(time.Now().Nanosecond())
-	}
-	rand.Seed(seed)
+
 
 	// profiling stuff
 	if *cpuprofile != "" {
@@ -86,33 +94,10 @@ func main() {
 	n_markers := len(seq_set.Sequences[0])
 	fmt.Fprintln(os.Stderr, "# n markers: ", n_markers)
 
-	//****************** load closest relatives from file (if specified):
-	{
-		fh, err := os.Open(rel_file)
-		fmt.Fprintf(os.Stderr, "relatives file name: %s \n", rel_file)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Couldn't open ", rel_file, " for reading.")
-			os.Exit(1)
-		}
-		scanner := bufio.NewScanner(fh)
-		scanner.Buffer(make([]byte, 10000), 1000000) // th
-		line_number := 0
-		for scanner.Scan() {
-			line := scanner.Text()
-			fields := strings.Fields(line) // split on one or more whitespace chars.
-			if line_number == 0 {          // this line should have Accession and other col headings, skip.
-				if fields[0] != "Accession" {
-					os.Exit(1)
-				}
-			} else {
-				n_fields := len(fields)
-				acc_id := fields[n_fields-3]
+	// make(map[string]int)
+	//	amp_infos := make(map[string]*Pedigree_infoAmp_info,
 
-			}
-			line_number++
-		}
-	}
-
+	pedigrees_and_scores := make(map[string]Pedigree_info)
 	//****************** read pedigree information from file:
 	fh, err := os.Open(ped_file)
 	fmt.Fprintf(os.Stderr, "pedigree file name: %s \n", ped_file)
@@ -135,7 +120,7 @@ func main() {
 			acc_id := fields[n_fields-3]
 			mat_id := fields[n_fields-2]
 			pat_id := fields[n_fields-1]
-			if acc_id != "NA" && mat_id != "NA" && pat_id != "NA" {
+			if acc_id != "NA" && mat_id != "NA" && pat_id != "NA" { // all three ids must be present, else skip
 				fmt.Fprintf(os.Stderr, "%s  %s  %s\n", acc_id, mat_id, pat_id)
 				acc_gt := seq_set.Sequences[seq_set.SeqId_index[acc_id]]
 				mat_gt := seq_set.Sequences[seq_set.SeqId_index[mat_id]]
@@ -143,11 +128,96 @@ func main() {
 				g_count, b_count := calculate_pedigree_score(acc_gt, mat_gt, pat_gt)
 				fmt.Fprintf(os.Stderr, "%8d %8d \n", g_count, b_count)
 				pedigree_score := float64(b_count) / float64(g_count+b_count)
-				fmt.Println(acc_id, mat_id, pat_id, pedigree_score)
+				//	fmt.Println(acc_id, mat_id, pat_id, pedigree_score)
+				n00_22, n11, nd1, nd2 := sequenceset.Distance(acc_gt, mat_gt)
+				am_dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+				n00_22, n11, nd1, nd2 = sequenceset.Distance(acc_gt, pat_gt)
+				ap_dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+				pedigrees_and_scores[acc_id] = Pedigree_info{mat_id, am_dist, pat_id, ap_dist, pedigree_score}
 			}
 		}
 		line_number++
 	}
+
+	/* for _, pas := range pedigrees_and_scores {
+		fmt.Println("X: ", acc_id, pas[acc_id].Mat_id, pas[acc_id].Pat_id, pas[acc_id].Pedigree_score)
+	} /* */
+
+	//****************** load closest relatives from file (if specified):
+	{
+		fh, err := os.Open(rel_file)
+		fmt.Fprintf(os.Stderr, "relatives file name: %s \n", rel_file)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Couldn't open ", rel_file, " for reading.")
+			os.Exit(1)
+		}
+		scanner := bufio.NewScanner(fh)
+		scanner.Buffer(make([]byte, 10000), 1000000) // th
+	//	line_number := 0
+		for scanner.Scan() {
+			line := scanner.Text()
+			fields := strings.Fields(line) // split on one or more whitespace chars.
+			if fields[0] == "#" {
+				// comment - skip
+			} else {
+				n_fields := len(fields)
+				acc_id := fields[0]
+			//	fmt.Println("Accession: ", acc_id)
+				acc_gt := seq_set.Sequences[seq_set.SeqId_index[acc_id]]
+
+			//	n_close_rels_to_check := 7
+				if 2*n_close_rels_to_check > n_fields-1 {
+					n_close_rels_to_check = (n_fields - 1) / 2
+				}
+				/*		close_rel_ids := make([]string, n_close_rels_to_check)
+						for j := 0; j < n_close_rels_to_check; j++ {
+							close_rel_ids[j] = fields[2*j+1]
+						} /* */
+				n_parental_pairs_to_try := (n_close_rels_to_check * (n_close_rels_to_check + 1)) / 2
+				candidate_pedigrees_info := make([]Pedigree_info, n_parental_pairs_to_try)
+				i := 0
+				for k := 0; k < n_close_rels_to_check; k++ {
+					mat_id := fields[2*k+1]
+					mat_gt := seq_set.Sequences[seq_set.SeqId_index[mat_id]]
+
+					am_dist, _ := strconv.ParseFloat(fields[2*k+2], 64)
+					for l := k; l < n_close_rels_to_check; l++ {
+						pat_id := fields[2*l+1]
+						pat_gt := seq_set.Sequences[seq_set.SeqId_index[pat_id]]
+						ap_dist, _ := strconv.ParseFloat(fields[2*l+2], 64) //fields[2*l+2]
+						good_count, bad_count := calculate_pedigree_score(acc_gt, mat_gt, pat_gt)
+						p_score := float64(bad_count) / float64(good_count+bad_count)
+						p_info := Pedigree_info{mat_id, am_dist, pat_id, ap_dist, p_score}
+						candidate_pedigrees_info[i] = p_info
+						//	fmt.Println(" pedigrees info:  ", p_info) // candidate_pedigrees_info[i])
+						i++
+					}
+				}
+
+				sort.Slice(candidate_pedigrees_info,
+					func(i, j int) bool {
+						return candidate_pedigrees_info[i].Amp_pedigree_score < candidate_pedigrees_info[j].Amp_pedigree_score
+					})
+
+				if pas, ok := pedigrees_and_scores[acc_id]; ok {
+					fmt.Printf("%s  %s %6.4f %s %6.4f %6.4f  ", acc_id, pas.Mat_id, pas.Am_dist, pas.Pat_id, pas.Ap_dist, pas.Amp_pedigree_score)
+				} else {
+					fmt.Printf("%s %s  ", acc_id, "X -1 Y -1 -1")
+				}
+
+				for j, pas := range candidate_pedigrees_info {
+					fmt.Printf("%s %6.4f %s %6.4f %6.4f  ", pas.Mat_id, pas.Am_dist, pas.Pat_id, pas.Ap_dist, pas.Amp_pedigree_score)
+					if j >= 5 {
+						break
+					}
+				}
+				fmt.Printf("\n")
+				
+			}
+		//	line_number++
+		}
+	}
+
 }
 
 // ********************************************************************************
@@ -229,7 +299,7 @@ func calculate_pedigree_score(a_gt string, m_gt string, p_gt string) (int, int) 
 
 // get the query id and seq, and the candidate match ids and seqs from channel, calculate distances
 // send them through a channel
-func calculate_distances(inch chan []*mytypes.IdSeq, outch chan []*mytypes.IdCmfDistance, wg *sync.WaitGroup) {
+/* func calculate_distances(inch chan []*mytypes.IdSeq, outch chan []*mytypes.IdCmfDistance, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {
 		q_and_matches, ok := <-inch
@@ -243,18 +313,17 @@ func calculate_distances(inch chan []*mytypes.IdSeq, outch chan []*mytypes.IdCmf
 		out[0] = &qout
 		for i := 1; i < len(q_and_matches); i++ {
 			subj := q_and_matches[i]
-			n00_22, n11, nd1, nd2 := sequenceset.Distance(query.Sequence, subj.Sequence)
-			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+
 			sout := mytypes.IdCmfDistance{subj.Id, -1, dist}
 			out[i] = &sout
 		}
 		sort.Slice(out, func(i, j int) bool { // sort them by ChunkMatchFraction
 			return out[i].Distance < out[j].Distance
-		}) /* */
+		})
 		out[0].Distance = 0 // now set it to 0
 		outch <- out
 	}
-}
+} /* */
 
 func calculate_candidate_distances(id_seqset map[string]*sequenceset.Sequence_set, qid_cmfpq map[string]*priorityqueue.PriorityQueue) int {
 	dist_calc_count := 0
