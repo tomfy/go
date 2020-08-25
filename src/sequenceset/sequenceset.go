@@ -16,6 +16,8 @@ import (
 	"priorityqueue"
 )
 
+
+
 type Sequence_set struct {
 	Sequences       []string
 	Sequence_length int
@@ -384,6 +386,7 @@ func (seq_set *Sequence_set) Fraction_of_all_distances_AB(seq_set2 *Sequence_set
 				id2 := seq_set2.Seq_index_to_id(i2)
 				n00_22, n11, nd1, nd2 := Distance(seq1, seq2)
 				dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+			
 				id2_dist, ok := idpair_dist[id1]
 				if !ok {
 					id2_dist = make(map[string]float64)
@@ -413,10 +416,16 @@ func (q_seq_set *Sequence_set) Candidate_distances_qs(s_seq_set *Sequence_set, q
 			sseq_id := matchinfo.Id // s_seq_set.Seq_index_to_id(sseq_index)
 			sseq := s_seq_set.Sequences[sseq_index]
 			n00_22, n11, nd1, nd2 := Distance(sseq, qseq)
-			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+	
+			agmr := float64(nd1 + nd2)/float64(n00_22 + n11 + nd1 + nd2)
+			hgmr := float64(nd2)/float64(n00_22 + nd2) // homozygous genotype mismatch rate
 
+			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)	
+		//	dist := hgmr - mytypes.Alpha*agmr
+	
 			dist_calc_count++
-			matchinfo := mytypes.IdCmfDistance{sseq_id, matchinfo.ChunkMatchFraction, dist}
+			matchinfo := mytypes.IdCmfDistance{sseq_id, matchinfo.ChunkMatchFraction, agmr, hgmr, dist}
+				// dist}
 			id_matchcount_distance_triples[i] = matchinfo
 			qid_matches[qid] = append(qid_matches[qid], matchinfo)
 		}
@@ -453,9 +462,15 @@ func (q_seq_set *Sequence_set) Candidate_distances_pq(s_seq_set *Sequence_set, q
 			}
 			sseq := s_seq_set.Sequences[sseq_index]
 			n00_22, n11, nd1, nd2 := Distance(sseq, qseq)
+				agmr := float64(nd1 + nd2)/float64(n00_22 + n11 + nd1 + nd2);
+			hgmr := float64(nd2)/float64(n00_22 + nd2) // homozygous genotype mismatch rate
+			
+			// dist := hgmr - mytypes.Alpha*agmr
 			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+			
 			dist_calc_count++
-			matchinfo := mytypes.IdCmfDistance{sseq_id, matchinfo.Cmf, dist} // ChunkMatchFraction, dist}
+			matchinfo := mytypes.IdCmfDistance{sseq_id, matchinfo.Cmf, agmr, hgmr, dist}
+				// dist} // ChunkMatchFraction, dist}
 			id_matchcount_distance_triples[i] = matchinfo
 		}
 
@@ -465,7 +480,7 @@ func (q_seq_set *Sequence_set) Candidate_distances_pq(s_seq_set *Sequence_set, q
 			})
 
 		for _, a_triple := range id_matchcount_distance_triples {
-			fmt.Printf("%s %6.5f %6.5f  ", a_triple.Id, a_triple.ChunkMatchFraction, a_triple.Distance)
+			fmt.Printf(" %s %6.5f %6.5f  ", a_triple.Id, a_triple.ChunkMatchFraction, a_triple.Distance)
 		}
 		fmt.Printf("\n")
 	}
