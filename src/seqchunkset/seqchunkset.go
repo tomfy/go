@@ -323,9 +323,9 @@ func (scs *Sequence_chunk_set) Search_pq(q_seq_set *sequenceset.Sequence_set, n_
 	for qindex, qseq := range q_seq_set.Sequences {
 		qid := q_seq_set.Seq_index_to_id(qindex)
 		id1 := qid
-		id1cmfpq, ok1 := (*qid_cmfpq)[id1]
+		id1cmfpq, ok1 := (*qid_cmfpq)[id1] 
 		if !ok1 {
-			fmt.Println("ok1 false")
+			fmt.Println("In Search_pq ; ok1 false")
 			os.Exit(1)
 		}
 		if true { // search against the previously read-in sequences
@@ -337,7 +337,7 @@ func (scs *Sequence_chunk_set) Search_pq(q_seq_set *sequenceset.Sequence_set, n_
 
 				id2cmf := priorityqueue.IdCmf{Id: id2, Cmf: mtchinfo.ChunkMatchFraction}
 
-				n12_notatcap, n12_skip, n12_pop := pq_capped_push(id1cmfpq, id2cmf, n_keep)
+				n12_notatcap, n12_skip, n12_pop := pq_capped_push(id1cmfpq, id2cmf, n_keep) // enter id2cmf into the pq for id1
 				cn12_notatcap += n12_notatcap
 				cn12_skip += n12_skip
 				cn12_pop += n12_pop
@@ -345,10 +345,10 @@ func (scs *Sequence_chunk_set) Search_pq(q_seq_set *sequenceset.Sequence_set, n_
 				id1cmf := priorityqueue.IdCmf{Id: id1, Cmf: mtchinfo.ChunkMatchFraction}
 				id2cmfpq, ok2 := (*qid_cmfpq)[id2]
 				if !ok2 {
-					fmt.Println("ok2 false")
+					fmt.Println("In Search_pq ; ok2 false")
 					os.Exit(1)
 				}
-				n21_notatcap, n21_skip, n21_pop := pq_capped_push(id2cmfpq, id1cmf, n_keep)
+				n21_notatcap, n21_skip, n21_pop := pq_capped_push(id2cmfpq, id1cmf, n_keep) // enter id2cmf into the pq for id1
 				cn21_notatcap += n21_notatcap
 				cn21_skip += n21_skip
 				cn21_pop += n21_pop
