@@ -283,13 +283,16 @@ func calculate_distances(inch chan []*mytypes.IdSeq, outch chan []*mytypes.IdCmf
 		size := len(q_and_matches)
 		out := make([]*mytypes.IdCmfDistance, size)
 		query := q_and_matches[0]
-		qout := mytypes.IdCmfDistance{query.Id, -1, -1} // set Distance negative here to guarantee sort puts query in position 0
+		qout := mytypes.IdCmfDistance{query.Id, -1, -1, -1, -1} // set Distance negative here to guarantee sort puts query in position 0
 		out[0] = &qout
 		for i := 1; i < len(q_and_matches); i++ {
 			subj := q_and_matches[i]
 			n00_22, n11, nd1, nd2 := sequenceset.Distance(query.Sequence, subj.Sequence)
-			dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
-			sout := mytypes.IdCmfDistance{subj.Id, -1, dist}
+			agmr := float64(nd1+nd2) / float64(n00_22+n11+nd1+nd2)
+			hgmr := float64(nd2) / float64(n00_22+nd2)
+			dist := hgmr - mytypes.Alpha*agmr
+			//	dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+			sout := mytypes.IdCmfDistance{subj.Id, -1, agmr, hgmr, dist}
 			out[i] = &sout
 		}
 		sort.Slice(out, func(i, j int) bool { // sort them by ChunkMatchFraction
@@ -302,40 +305,57 @@ func calculate_distances(inch chan []*mytypes.IdSeq, outch chan []*mytypes.IdCmf
 
 func calculate_candidate_distances(id_seqset map[string]*sequenceset.Sequence_set, qid_cmfpq map[string]*priorityqueue.PriorityQueue) int {
 	dist_calc_count := 0
-	idpair_dist := make(map[string]float64)
+	idpair_dist := make(map[string]mytypes.IdCmfDistance) // float64)
 	for id1, cmfpq := range qid_cmfpq {
 		seqset1 := id_seqset[id1]
 		seq1 := seqset1.Sequences[seqset1.SeqId_index[id1]]
+		//	fmt.Fprintf(os.Stderr, "Seq1: %s \n", seq1)
+	//	fmt.Fprintf(os.Stderr, "len: %d \n", len(*cmfpq))
 		top_matches := make([]mytypes.IdCmfDistance, len(*cmfpq))
-		fmt.Printf("%s ", id1)
+		fmt.Printf("%s  ", id1)
 		for i, cmf := range *cmfpq {
 			id2 := cmf.Id
+				fmt.Fprintf(os.Stderr, "[%s] [%s] \n", id1, id2)
 			cmf := cmf.Cmf
 			seqset2 := id_seqset[id2]
 			seq2 := seqset2.Sequences[seqset2.SeqId_index[id2]]
-
+			//	fmt.Fprintf(os.Stderr, "   Seq2: %s \n", seq2)
 			var idpair string
 			if id1 < id2 { // put ids together with the 'smaller' one on left:
 				idpair = id1 + "\t" + id2
 			} else {
 				idpair = id2 + "\t" + id1
 			}
-			dist, ok := idpair_dist[idpair] /* */
-			if !ok {                        // don't already have the distance for this pair - calculate it from the seq1, seq2.
+			ICD, ok := idpair_dist[idpair] /* */
+
+			if !ok { // don't already have the distance for this pair - calculate it from the seq1, seq2.
 				n00_22, n11, nd1, nd2 := sequenceset.Distance(seq1, seq2)
-				dist = float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
-				idpair_dist[idpair] = dist
+				agmr := float64(nd1+nd2) / float64(n00_22+n11+nd1+nd2)
+				hgmr := float64(nd2) / float64(n00_22+nd2)
+
+				// dist := hgmr - mytypes.Alpha*agmr
+				dist := float64(nd1+2*nd2) / float64(n00_22+n11+nd1+nd2)
+				
+				idpair_dist[idpair] = mytypes.IdCmfDistance{id2, cmf, agmr, hgmr, dist}
 				dist_calc_count++
+				//	}
+				icd := mytypes.IdCmfDistance{id2, cmf, agmr, hgmr, dist}
+				top_matches[i] = icd
+				//	fmt.Fprintln(os.Stderr, "icd:  ", icd)
+			} else {
+				fmt.Fprintf(os.Stderr, "AAA:  %s   %s %s \n", idpair, ICD.Id, id2)
+				ICD.Id = id2
+				top_matches[i] = ICD
+			//	fmt.Println("    ICD, id1 id2:  ", ICD, " ", id1, " ", id2)
 			}
-			icd := mytypes.IdCmfDistance{id2, cmf, dist}
-			top_matches[i] = icd
 		}
 		sort.Slice(top_matches, func(i, j int) bool {
-			return top_matches[i].Distance < top_matches[j].Distance
+		//	return top_matches[i].Distance < top_matches[j].Distance
+			return top_matches[i].Hgmr < top_matches[j].Hgmr
 		})
 		for _, x := range top_matches {
 			//	fmt.Printf("%s %5.3f %7.5f  ", x.Id, x.ChunkMatchFraction, x.Distance)
-			fmt.Printf("%s %7.5f  ", x.Id, x.Distance)
+			fmt.Printf("%s %7.5f %7.5f %7.5f  ", x.Id, x.Agmr, x.Hgmr, x.Distance)
 		}
 		fmt.Println()
 	}
