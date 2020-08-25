@@ -13,6 +13,8 @@ type MatchInfo struct {
 type IdCmfDistance struct {
 	Id                 string
 	ChunkMatchFraction float64
+	Agmr               float64
+	Hgmr               float64
 	Distance           float64
 }
 
@@ -20,3 +22,5 @@ type IdSeq struct {
 	Id       string
 	Sequence string
 }
+
+var Alpha float64 = 0.0
